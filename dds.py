@@ -33,6 +33,8 @@ _ddsc_lib.DDS_DomainParticipantFactory_create_participant.argtypes = [ctypes.POI
 _ddsc_lib.DDS_DomainParticipantFactory_create_participant.restype = ctypes.POINTER(DDS_DomainParticipant)
 _ddsc_lib.DDS_DomainParticipantFactory_create_participant.errcheck = check_none
 
+_ddsc_lib.DDS_DomainParticipantFactory_delete_participant.argtypes = [ctypes.POINTER(DDS_DomainParticipantFactory), ctypes.POINTER(DDS_DomainParticipant)]
+_ddsc_lib.DDS_DomainParticipant_delete_publisher.errcheck = check_code
 
 class DDS_Publisher(ctypes.Structure):
     pass
@@ -41,6 +43,8 @@ _ddsc_lib.DDS_DomainParticipant_create_publisher.argtypes = [ctypes.POINTER(DDS_
 _ddsc_lib.DDS_DomainParticipant_create_publisher.restype = ctypes.POINTER(DDS_Publisher)
 _ddsc_lib.DDS_DomainParticipant_create_publisher.errcheck = check_none
 
+_ddsc_lib.DDS_DomainParticipant_delete_publisher.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.POINTER(DDS_Publisher)]
+_ddsc_lib.DDS_DomainParticipant_delete_publisher.errcheck = check_code
 
 class DDS_Topic(ctypes.Structure):
     pass
@@ -68,16 +72,16 @@ DDS_STATUS_MASK_NONE = ctypes.c_ulong(0)
 
 
 class Topic(object):
-    def __init__(self, library, topic_name, data_type):
-        self._library = library
+    def __init__(self, dds, topic_name, data_type):
+        self._dds = dds
         self._topic_name = topic_name
         self._data_type = data_type
-        del library, topic_name, data_type
+        del dds, topic_name, data_type
         
-        self._data_type._TypeSupport_register_type(self._library._participant, self._data_type._TypeSupport_get_type_name())
+        self._data_type._TypeSupport_register_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
         
         self._topic =  _ddsc_lib.DDS_DomainParticipant_create_topic(
-            self._library._participant,
+            self._dds._participant,
             self._topic_name,
             self._data_type._TypeSupport_get_type_name(),
             _ddsc_lib.DDS_TOPIC_QOS_DEFAULT,
@@ -86,7 +90,7 @@ class Topic(object):
         )
         
         self._writer = _ddsc_lib.DDS_Publisher_create_datawriter(
-            self._library._publisher,
+            self._dds._publisher,
             self._topic,
             _ddsc_lib.DDS_DATAWRITER_QOS_DEFAULT,
             None,
@@ -97,17 +101,17 @@ class Topic(object):
     
     def send(self, msg):
         instance = self._data_type._TypeSupport_create_data()
-        x = ctypes.create_string_buffer(struct.pack("<16sII", "", 16, 0))
+        x = ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0))
         self._data_type._DataWriter_write(self._narrowed_writer, instance, x)
     
     def __del__(self, _ddsc_lib=_ddsc_lib):
         _ddsc_lib.DDS_Publisher_delete_datawriter(
-            self._library._publisher,
+            self._dds._publisher,
             self._writer,
         )
         
         _ddsc_lib.DDS_DomainParticipant_delete_topic(
-            self._library._participant,
+            self._dds._participant,
             self._topic,
         )
 
@@ -127,18 +131,23 @@ class DDS(object):
             None,
             DDS_STATUS_MASK_NONE,
         )
-        
-        self._counter = itertools.count()
-    
-    def _get_name(self):
-        return "pythondds%i" % (self._counter.next(),)
     
     def get_topic(self, topic_name, data_type):
         # XXX
         return Topic(self, topic_name, data_type)
-
-import itertools
-id_generator = itertools.count()
+    
+    def __del__(self, _ddsc_lib=_ddsc_lib):
+        _ddsc_lib.DDS_DomainParticipant_delete_publisher(
+            self._participant,
+            self._publisher,
+        )
+        
+        # very slow for some reason
+        _ddsc_lib.DDS_DomainParticipantFactory_delete_participant(
+            _ddsc_lib.DDS_DomainParticipantFactory_get_instance(),
+            self._participant,
+        )
+        
 
 class LibraryType(object):
     def __init__(self, lib, name):
@@ -190,8 +199,9 @@ class Library(object):
     def __getattr__(self, attr):
         return LibraryType(self._lib, attr)
 
-d = DDS()
-l = Library('../build/DDSMessages/libddsmessages2.so')
-t = d.get_topic('newtopic2', l.DepthMessage)
-while True:
-    t.send({})
+if __name__ == '__main__':
+    d = DDS()
+    l = Library('../build/DDSMessages/libddsmessages2.so')
+    t = d.get_topic('newtopic2', l.DepthMessage)
+    while True:
+        t.send({})
