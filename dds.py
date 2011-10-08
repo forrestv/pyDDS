@@ -97,6 +97,10 @@ _ddsc_lib.DDS_DynamicDataWriter_narrow.errcheck = check_none
 
 DDS_STATUS_MASK_NONE = ctypes.c_ulong(0)
 
+import itertools
+names = itertools.count()
+def _get_name():
+    return "gen_name%i" % (names.next(),)
 
 class Topic(object):
     def __init__(self, dds, topic_name, data_type):
@@ -105,7 +109,9 @@ class Topic(object):
         self._data_type = data_type
         del dds, topic_name, data_type
         
-        self._data_type._TypeSupport_register_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        name = _get_name()
+        self._support = _ddsc_lib.DDS_DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), _ddsc_lib.DDS_DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
+        _ddsc_lib.DDS_DynamicDataTypeSupport_register_type(self._support, self._dds._participant, self._data_type._TypeSupport_get_type_name())
         
         self._topic =  _ddsc_lib.DDS_DomainParticipant_create_topic(
             self._dds._participant,
@@ -128,17 +134,21 @@ class Topic(object):
         self._dyn_narrowed_writer = _ddsc_lib.DDS_DynamicDataWriter_narrow(self._writer)
     
     def send(self, msg):
-        support = _ddsc_lib.DDS_DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), _ddsc_lib.DDS_DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
-        sample = _ddsc_lib.DDS_DynamicDataTypeSupport_create_data(support) #sample = _ddsc_lib.DDS_DynamicData_new(tc, _ddsc_lib.DDS_DYNAMIC_DATA_PROPERTY_DEFAULT)
-        #_ddsc_lib.DDS_DynamicData_set_long(sample, "depth", 0, 5)
-        print msg
-        _ddsc_lib.DDS_DynamicData_set_double(sample, "depth", 0, msg['depth'])
-        #DDS_Long theInteger = 0;
-        #DDS_DynamicData_get_long(sample, &theInteger, "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED); 
-        print "fdasfas"
-        _ddsc.DDS_DynamicDataWriter_write(self._dyn_narrowed_writer, sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
+        sample = _ddsc_lib.DDS_DynamicDataTypeSupport_create_data(self._support) #sample = _ddsc_lib.DDS_DynamicData_new(tc, _ddsc_lib.DDS_DYNAMIC_DATA_PROPERTY_DEFAULT)
         
-        _ddsc_lib.DDS_DynamicDataTypeSupport_delete_data(support, sample) # _ddsc_lib.DDS_DynamicData_delete(d)
+        for k, v in msg.iteritems():
+            if isinstance(v, int):
+                _ddsc_lib.DDS_DynamicData_set_long(sample, k, 0, v)
+            elif isinstance(v, float):
+                _ddsc_lib.DDS_DynamicData_set_double(sample, "depth", 0, v)
+            else:
+                raise TypeError((k, v))
+        #DDS_Long theInteger = 0;
+        _ddsc_lib.DDS_DynamicDataWriter_write(self._dyn_narrowed_writer, sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
+        _ddsc_lib.DDS_DynamicDataTypeSupport_delete_data(self._support, sample)
+    
+    def recv(self):
+        DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
     def __del__(self, _ddsc_lib=_ddsc_lib):
         _ddsc_lib.DDS_Publisher_delete_datawriter(
