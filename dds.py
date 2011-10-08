@@ -17,88 +17,42 @@ def check_none(result, func, arguments, Error=Error):
         raise Error()
     return result
 
+@apply
+class DDSFunc(object):
+    def __getattr__(self, attr):
+        contents = getattr(_ddsc_lib, "DDS_" + attr)
+        setattr(self, attr, contents)
+        return contents
 
-class DDS_DomainParticipantFactory(ctypes.Structure):
-    pass
+@apply
+class DDSType(object):
+    def __getattr__(self, attr):
+        contents = type(attr, (ctypes.Structure,), {})
+        setattr(self, attr, contents)
+        return contents
 
-_ddsc_lib.DDS_DomainParticipantFactory_get_instance.argtypes = []
-_ddsc_lib.DDS_DomainParticipantFactory_get_instance.restype = ctypes.POINTER(DDS_DomainParticipantFactory)
-_ddsc_lib.DDS_DomainParticipantFactory_create_participant.errcheck = check_none
+DDS_ReturnCode_t = ctypes.c_int
 
-
-class DDS_DomainParticipant(ctypes.Structure):
-    pass
-
-_ddsc_lib.DDS_DomainParticipantFactory_create_participant.argtypes = [ctypes.POINTER(DDS_DomainParticipantFactory), ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
-_ddsc_lib.DDS_DomainParticipantFactory_create_participant.restype = ctypes.POINTER(DDS_DomainParticipant)
-_ddsc_lib.DDS_DomainParticipantFactory_create_participant.errcheck = check_none
-
-_ddsc_lib.DDS_DomainParticipantFactory_delete_participant.argtypes = [ctypes.POINTER(DDS_DomainParticipantFactory), ctypes.POINTER(DDS_DomainParticipant)]
-_ddsc_lib.DDS_DomainParticipant_delete_publisher.errcheck = check_code
-
-class DDS_Publisher(ctypes.Structure):
-    pass
-
-_ddsc_lib.DDS_DomainParticipant_create_publisher.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
-_ddsc_lib.DDS_DomainParticipant_create_publisher.restype = ctypes.POINTER(DDS_Publisher)
-_ddsc_lib.DDS_DomainParticipant_create_publisher.errcheck = check_none
-
-_ddsc_lib.DDS_DomainParticipant_delete_publisher.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.POINTER(DDS_Publisher)]
-_ddsc_lib.DDS_DomainParticipant_delete_publisher.errcheck = check_code
-
-class DDS_Topic(ctypes.Structure):
-    pass
-
-_ddsc_lib.DDS_DomainParticipant_create_topic.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
-_ddsc_lib.DDS_DomainParticipant_create_topic.restype = ctypes.POINTER(DDS_Topic)
-_ddsc_lib.DDS_DomainParticipant_create_topic.errcheck = check_none
-
-_ddsc_lib.DDS_DomainParticipant_delete_topic.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.POINTER(DDS_Topic)]
-_ddsc_lib.DDS_DomainParticipant_delete_topic.errcheck = check_code
-
-class DDS_DataWriter(ctypes.Structure):
-    pass
-
-
-_ddsc_lib.DDS_Publisher_create_datawriter.argtypes = [ctypes.POINTER(DDS_Publisher), ctypes.POINTER(DDS_Topic), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
-_ddsc_lib.DDS_Publisher_create_datawriter.restype = ctypes.POINTER(DDS_DataWriter)
-_ddsc_lib.DDS_Publisher_create_datawriter.errcheck = check_none
-
-_ddsc_lib.DDS_Publisher_delete_datawriter.argtypes = [ctypes.POINTER(DDS_Publisher), ctypes.POINTER(DDS_DataWriter)]
-_ddsc_lib.DDS_Publisher_delete_datawriter.errcheck = check_code
-
-
-class DDS_TypeCode(ctypes.Structure):
-    pass
-
-class DDS_DynamicDataTypeSupport(ctypes.Structure):
-    pass
-
-class DDS_DynamicData(ctypes.Structure):
-    pass
-
-_ddsc_lib.DDS_DynamicDataTypeSupport_new.argtypes = [ctypes.POINTER(DDS_TypeCode), ctypes.c_void_p]
-_ddsc_lib.DDS_DynamicDataTypeSupport_new.restype = ctypes.POINTER(DDS_DynamicDataTypeSupport)
-_ddsc_lib.DDS_DynamicDataTypeSupport_new.errcheck = check_none
-
-_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.argtypes = [ctypes.POINTER(DDS_DynamicDataTypeSupport)]
-_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.restype = ctypes.POINTER(DDS_DynamicData)
-_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.errcheck = check_none
-
-_ddsc_lib.DDS_DynamicDataTypeSupport_delete.argtypes = [ctypes.POINTER(DDS_DynamicDataTypeSupport)]
-
-_ddsc_lib.DDS_DynamicData_set_long.argtypes = [ctypes.POINTER(DDS_DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]
-_ddsc_lib.DDS_DynamicData_set_long.errcheck = check_code
-
-_ddsc_lib.DDS_DynamicData_set_double.argtypes = [ctypes.POINTER(DDS_DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]
-_ddsc_lib.DDS_DynamicData_set_double.errcheck = check_code
-
-_ddsc_lib.DDS_DynamicDataWriter_narrow.argtypes = [ctypes.POINTER(DDS_DataWriter)]
-_ddsc_lib.DDS_DynamicDataWriter_narrow.restype = ctypes.c_void_p
-_ddsc_lib.DDS_DynamicDataWriter_narrow.errcheck = check_none
-
-DDS_STATUS_MASK_NONE = ctypes.c_ulong(0)
-
+map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) if errcheck is not None else None, setattr(p, "restype", restype), setattr(p, "argtypes", argtypes)), [
+    (DDSFunc.DomainParticipantFactory_get_instance, check_none, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
+    (DDSFunc.DomainParticipantFactory_create_participant, check_none, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.DomainParticipantFactory_delete_participant, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.POINTER(DDSType.DomainParticipant)]),
+    (DDSFunc.DomainParticipant_create_publisher, check_none, ctypes.POINTER(DDSType.Publisher), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.DomainParticipant_delete_publisher, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Publisher)]),
+    (DDSFunc.DomainParticipant_create_topic, check_none, ctypes.POINTER(DDSType.Topic), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.DomainParticipant_delete_topic, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Topic)]),
+    (DDSFunc.Publisher_create_datawriter, check_none, ctypes.POINTER(DDSType.DataWriter), [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.Topic), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.Publisher_delete_datawriter, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.DataWriter)]),
+    (DDSFunc.DynamicDataTypeSupport_new, check_none, ctypes.POINTER(DDSType.DynamicDataTypeSupport), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
+    (DDSFunc.DynamicDataTypeSupport_register_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
+    (DDSFunc.DynamicDataTypeSupport_unregister_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
+    (DDSFunc.DynamicDataTypeSupport_create_data, check_none, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
+    (DDSFunc.DynamicDataTypeSupport_delete, None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
+    (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
+    (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
+    (DDSFunc.DynamicDataWriter_narrow, check_none, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
+    (DDSFunc.DynamicDataWriter_write, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
+])
 
 class Topic(object):
     def __init__(self, dds, topic_name, data_type):
@@ -116,7 +70,7 @@ class Topic(object):
             self._data_type._TypeSupport_get_type_name(),
             _ddsc_lib.DDS_TOPIC_QOS_DEFAULT,
             None,
-            DDS_STATUS_MASK_NONE,
+            0,
         )
         
         self._writer = _ddsc_lib.DDS_Publisher_create_datawriter(
@@ -124,7 +78,7 @@ class Topic(object):
             self._topic,
             _ddsc_lib.DDS_DATAWRITER_QOS_DEFAULT,
             None,
-            DDS_STATUS_MASK_NONE,
+            0,
         )
         
         self._dyn_narrowed_writer = _ddsc_lib.DDS_DynamicDataWriter_narrow(self._writer)
@@ -156,7 +110,9 @@ class Topic(object):
             self._dds._participant,
             self._topic,
         )
-        # XXX unregister?
+        
+        _ddsc_lib.DDS_DynamicDataTypeSupport_unregister_type(self._support, self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        
         _ddsc_lib.DDS_DynamicDataTypeSupport_delete(self._support)
 
 class DDS(object):
@@ -166,14 +122,14 @@ class DDS(object):
             domain_id,
             _ddsc_lib.DDS_PARTICIPANT_QOS_DEFAULT,
             None,
-            DDS_STATUS_MASK_NONE,
+            0,
         )
         
         self._publisher = _ddsc_lib.DDS_DomainParticipant_create_publisher(
             self._participant,
             _ddsc_lib.DDS_PUBLISHER_QOS_DEFAULT,
             None,
-            DDS_STATUS_MASK_NONE,
+            0,
         )
     
     def get_topic(self, topic_name, data_type):
@@ -201,11 +157,11 @@ class LibraryType(object):
     def _TypeSupport_get_typecode(self):
         f = getattr(self._lib, self._name + '_get_typecode')
         f.argtypes = []
-        f.restype = ctypes.POINTER(DDS_TypeCode)
+        f.restype = ctypes.POINTER(DDSType.TypeCode)
         f.errcheck = check_none
         return f()
     
-    def _TypeSupport_get_type_name(self):
+    def _TypeSupport_get_type_name(self, ctypes=ctypes, check_none=check_none):
         f = getattr(self._lib, self._name + 'TypeSupport_get_type_name')
         f.argtypes = []
         f.restype = ctypes.c_char_p
@@ -214,13 +170,13 @@ class LibraryType(object):
     
     def _TypeSupport_register_type(self, participant, type_name):
         f = getattr(self._lib, self._name + 'TypeSupport_register_type')
-        f.argtypes = [ctypes.POINTER(DDS_DomainParticipant), ctypes.c_char_p]
+        f.argtypes = [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]
         f.errcheck = check_code
         f(participant, type_name)
     
     def _DataWriter_narrow(self, writer):
         f = getattr(self._lib, self._name + 'DataWriter_narrow')
-        f.argtypes = [ctypes.POINTER(DDS_DataWriter)]
+        f.argtypes = [ctypes.POINTER(DDSType.DataWriter)]
         f.restype = ctypes.c_void_p
         f.errcheck = check_none
         return f(writer)
