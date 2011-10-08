@@ -4,6 +4,8 @@ import ctypes
 _ddscore_lib = ctypes.CDLL('/home/forrest/RTI/ndds.4.5d/lib/x64Linux2.6gcc4.1.1/libnddscore.so', ctypes.RTLD_GLOBAL)
 _ddsc_lib = ctypes.CDLL('/home/forrest/RTI/ndds.4.5d/lib/x64Linux2.6gcc4.1.1/libnddsc.so')
 
+# Error checkers
+
 class Error(Exception):
     pass
 
@@ -21,6 +23,8 @@ def check_ex(result, func, arguments):
     if arguments[-1]._obj.value == 0:
         return result
     raise Error(arguments[-1]._obj)
+
+# Function and structure accessors
 
 @apply
 class DDSFunc(object):
@@ -47,10 +51,14 @@ class DDSType(object):
         setattr(self, attr, contents)
         return contents
 
+# some types
+
 DDS_ReturnCode_t = ctypes.c_int
 DDS_ExceptionCode_t = ctypes.c_int
 def ex():
     return ctypes.byref(DDS_ExceptionCode_t())
+
+# Function prototypes
 
 map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) if errcheck is not None else None, setattr(p, "restype", restype), setattr(p, "argtypes", argtypes)), [
     (DDSFunc.DomainParticipantFactory_get_instance, check_none, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
@@ -143,11 +151,12 @@ class Topic(object):
         sample = self._support.create_data()
         
         parse_into_dd(msg, sample)
-        self._dyn_narrowed_writer.write(sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
+        self._dyn_narrowed_writer.write(sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0))) # XXX ugly
         
         self._support.delete_data(sample)
     
     def recv(self):
+        # XXX make actually receive something
         DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
     def __del__(self):
@@ -186,6 +195,7 @@ class LibraryType(object):
     def __init__(self, lib, name):
         self._lib, self._name = lib, name
         del lib, name
+        
         assert self._TypeSupport_get_type_name() == self._name
     
     def _TypeSupport_get_typecode(self):
