@@ -204,37 +204,6 @@ class LibraryType(object):
         f.restype = ctypes.c_char_p
         f.errcheck = check_none
         return f()
-    
-    def _TypeSupport_register_type(self, participant, type_name):
-        f = getattr(self._lib, self._name + 'TypeSupport_register_type')
-        f.argtypes = [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]
-        f.errcheck = check_code
-        f(participant, type_name)
-    
-    def _DataWriter_narrow(self, writer):
-        f = getattr(self._lib, self._name + 'DataWriter_narrow')
-        f.argtypes = [ctypes.POINTER(DDSType.DataWriter)]
-        f.restype = ctypes.c_void_p
-        f.errcheck = check_none
-        return f(writer)
-    
-    def _TypeSupport_create_data(self):
-        f = getattr(self._lib, self._name + 'TypeSupport_create_data')
-        f.argtypes = []
-        f.restype = ctypes.c_void_p
-        f.errcheck = check_none
-        return f()
-    
-    def _TypeSupport_print_data(self, d):
-        f = getattr(self._lib, self._name + 'TypeSupport_print_data')
-        f.argtypes = [ctypes.c_void_p]
-        f(d)
-    
-    def _DataWriter_write(self, writer, x, y):
-        f = getattr(self._lib, self._name + 'DataWriter_write')
-        f.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        f.errcheck = check_code
-        return f(writer, x, y)
 
 class Library(object):
     def __init__(self, so_path):
