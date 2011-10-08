@@ -32,7 +32,18 @@ class DDSFunc(object):
 @apply
 class DDSType(object):
     def __getattr__(self, attr):
+        def g(self2, attr2):
+            f = getattr(DDSFunc, attr + '_' + attr2)
+            def p(*args):
+                return f(self2, *args)
+            return p
+        
         contents = type(attr, (ctypes.Structure,), {})
+        
+        # takes advantage of POINTERs being cached
+        p = ctypes.POINTER(contents)
+        p.__getattr__ = g
+        
         setattr(self, attr, contents)
         return contents
 
@@ -78,22 +89,24 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) i
 ])
 
 def parse_into_dd(obj, dd):
-    kind = DDSFunc.DynamicData_get_type_kind(dd)
+    kind = dd.get_type_kind()
     if kind == 10:
         assert isinstance(obj, dict)
-        tc = DDSFunc.DynamicData_get_type(dd)
-        for i in xrange(DDSFunc.TypeCode_member_count(tc, ex())):
-            name = DDSFunc.TypeCode_member_name(tc, i, ex())
-            kind2 = DDSFunc.TypeCode_kind(DDSFunc.TypeCode_member_type(tc, i, ex()), ex())
+        tc = dd.get_type()
+        for i in xrange(tc.member_count(ex())):
+            name = tc.member_name(i, ex())
+            kind2 = tc.member_type(i, ex()).kind(ex())
             if kind2 == 6:
-                DDSFunc.DynamicData_set_double(dd, name, 0, obj[name])
+                dd.set_double(name, 0, obj[name])
             elif kind2 == 18:
-                DDSFunc.DynamicData_set_ulonglong(dd, name, 0, obj[name])
+                dd.set_ulonglong(name, 0, obj[name])
             elif kind2 == 10:
                 raise NotImplementedError()
-                res = DDSFunc.DynamicData_new(None, _ddsc_lib.DDS_DYNAMIC_DATA_PROPERTY_DEFAULT)
-                DDSFunc.DynamicData_bind_complex_member(dd, res, DDSFunc.TypeCode_member_name(tc, i, ex()), 0)
-                parse_into_dd(obj[DDSFunc.TypeCode_member_name(tc, i, ex())], dd)
+                res = DDSFunc.DynamicData_new(None, DDSFunc.DYNAMIC_DATA_PROPERTY_DEFAULT)
+                dd.bind_complex_member(res, tc.member_name(i, ex()), 0)
+                parse_into_dd(obj[tc.member_name(i, ex())], dd)
+                # unbind
+                # delete res
             else:
                 raise NotImplementedError(kind2)
     else:
@@ -106,90 +119,74 @@ class Topic(object):
         self._data_type = data_type
         del dds, topic_name, data_type
         
-        self._support = _ddsc_lib.DDS_DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), _ddsc_lib.DDS_DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
-        _ddsc_lib.DDS_DynamicDataTypeSupport_register_type(self._support, self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        self._support = DDSFunc.DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), DDSFunc.DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
+        self._support.register_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
         
-        self._topic =  _ddsc_lib.DDS_DomainParticipant_create_topic(
-            self._dds._participant,
+        self._topic = self._dds._participant.create_topic(
             self._topic_name,
             self._data_type._TypeSupport_get_type_name(),
-            _ddsc_lib.DDS_TOPIC_QOS_DEFAULT,
+            DDSFunc.TOPIC_QOS_DEFAULT,
             None,
             0,
         )
         
-        self._writer = _ddsc_lib.DDS_Publisher_create_datawriter(
-            self._dds._publisher,
+        self._writer = self._dds._publisher.create_datawriter(
             self._topic,
-            _ddsc_lib.DDS_DATAWRITER_QOS_DEFAULT,
+            DDSFunc.DATAWRITER_QOS_DEFAULT,
             None,
             0,
         )
         
-        self._dyn_narrowed_writer = _ddsc_lib.DDS_DynamicDataWriter_narrow(self._writer)
+        self._dyn_narrowed_writer = DDSFunc.DynamicDataWriter_narrow(self._writer)
     
     def send(self, msg):
-        sample = _ddsc_lib.DDS_DynamicDataTypeSupport_create_data(self._support)
+        sample = self._support.create_data()
+        
         parse_into_dd(msg, sample)
-        _ddsc_lib.DDS_DynamicDataWriter_write(self._dyn_narrowed_writer, sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
-        _ddsc_lib.DDS_DynamicDataTypeSupport_delete_data(self._support, sample)
+        self._dyn_narrowed_writer.write(sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
+        
+        self._support.delete_data(sample)
     
     def recv(self):
         DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
-    def __del__(self, _ddsc_lib=_ddsc_lib):
-        _ddsc_lib.DDS_Publisher_delete_datawriter(
-            self._dds._publisher,
-            self._writer,
-        )
-        
-        _ddsc_lib.DDS_DomainParticipant_delete_topic(
-            self._dds._participant,
-            self._topic,
-        )
-        
-        _ddsc_lib.DDS_DynamicDataTypeSupport_unregister_type(self._support, self._dds._participant, self._data_type._TypeSupport_get_type_name())
-        
-        _ddsc_lib.DDS_DynamicDataTypeSupport_delete(self._support)
+    def __del__(self):
+        self._dds._publisher.delete_datawriter(self._writer)
+        self._dds._participant.delete_topic(self._topic)
+        self._support.unregister_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        self._support.delete()
 
 class DDS(object):
     def __init__(self, domain_id=0):
-        self._participant = _ddsc_lib.DDS_DomainParticipantFactory_create_participant(
-            _ddsc_lib.DDS_DomainParticipantFactory_get_instance(),
+        self._participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant(
             domain_id,
-            _ddsc_lib.DDS_PARTICIPANT_QOS_DEFAULT,
+            DDSFunc.PARTICIPANT_QOS_DEFAULT,
             None,
             0,
         )
         
-        self._publisher = _ddsc_lib.DDS_DomainParticipant_create_publisher(
-            self._participant,
-            _ddsc_lib.DDS_PUBLISHER_QOS_DEFAULT,
+        self._publisher = self._participant.create_publisher(
+            DDSFunc.PUBLISHER_QOS_DEFAULT,
             None,
             0,
         )
     
     def get_topic(self, topic_name, data_type):
-        # XXX
+        # XXX cache this to handle it being called multiple times
         return Topic(self, topic_name, data_type)
     
-    def __del__(self, _ddsc_lib=_ddsc_lib):
-        _ddsc_lib.DDS_DomainParticipant_delete_publisher(
-            self._participant,
-            self._publisher,
-        )
+    def __del__(self):
+        self._participant.delete_publisher(self._publisher)
         
         # very slow for some reason
-        _ddsc_lib.DDS_DomainParticipantFactory_delete_participant(
-            _ddsc_lib.DDS_DomainParticipantFactory_get_instance(),
-            self._participant,
-        )
+        DDSFunc.DomainParticipantFactory_get_instance().delete_participant(self._participant)
 
 
 class LibraryType(object):
     def __init__(self, lib, name):
         self._lib, self._name = lib, name
         del lib, name
+        assert self._TypeSupport_get_type_name() == self._name
     
     def _TypeSupport_get_typecode(self):
         f = getattr(self._lib, self._name + '_get_typecode')
@@ -198,7 +195,7 @@ class LibraryType(object):
         f.errcheck = check_none
         return f()
     
-    def _TypeSupport_get_type_name(self, ctypes=ctypes, check_none=check_none):
+    def _TypeSupport_get_type_name(self):
         f = getattr(self._lib, self._name + 'TypeSupport_get_type_name')
         f.argtypes = []
         f.restype = ctypes.c_char_p
@@ -212,7 +209,7 @@ class Library(object):
     def __getattr__(self, attr):
         return LibraryType(self._lib, attr)
 
-if __name__ == '__main__':
+def main():
     import time
     
     d = DDS()
@@ -223,3 +220,6 @@ if __name__ == '__main__':
         x += 1.245
         t.send(dict(timestamp=int(x*100), depth=x, humidity=x+2, thermistertemp=x+3, humiditytemp=x+4))
         time.sleep(1)
+
+if __name__ == '__main__':
+    main()
