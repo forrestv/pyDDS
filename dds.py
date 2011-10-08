@@ -7,12 +7,12 @@ _ddsc_lib = ctypes.CDLL('/home/forrest/RTI/ndds.4.5d/lib/x64Linux2.6gcc4.1.1/lib
 class Error(Exception):
     pass
 
-def check_code(result, func, arguments):
+def check_code(result, func, arguments, Error=Error):
     if result == 0:
         return
     raise Error(result)
 
-def check_none(result, func, arguments):
+def check_none(result, func, arguments, Error=Error):
     if result is None:
         raise Error()
     return result
@@ -85,6 +85,8 @@ _ddsc_lib.DDS_DynamicDataTypeSupport_create_data.argtypes = [ctypes.POINTER(DDS_
 _ddsc_lib.DDS_DynamicDataTypeSupport_create_data.restype = ctypes.POINTER(DDS_DynamicData)
 _ddsc_lib.DDS_DynamicDataTypeSupport_create_data.errcheck = check_none
 
+_ddsc_lib.DDS_DynamicDataTypeSupport_delete.argtypes = [ctypes.POINTER(DDS_DynamicDataTypeSupport)]
+
 _ddsc_lib.DDS_DynamicData_set_long.argtypes = [ctypes.POINTER(DDS_DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]
 _ddsc_lib.DDS_DynamicData_set_long.errcheck = check_code
 
@@ -97,10 +99,6 @@ _ddsc_lib.DDS_DynamicDataWriter_narrow.errcheck = check_none
 
 DDS_STATUS_MASK_NONE = ctypes.c_ulong(0)
 
-import itertools
-names = itertools.count()
-def _get_name():
-    return "gen_name%i" % (names.next(),)
 
 class Topic(object):
     def __init__(self, dds, topic_name, data_type):
@@ -109,7 +107,6 @@ class Topic(object):
         self._data_type = data_type
         del dds, topic_name, data_type
         
-        name = _get_name()
         self._support = _ddsc_lib.DDS_DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), _ddsc_lib.DDS_DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
         _ddsc_lib.DDS_DynamicDataTypeSupport_register_type(self._support, self._dds._participant, self._data_type._TypeSupport_get_type_name())
         
@@ -130,7 +127,6 @@ class Topic(object):
             DDS_STATUS_MASK_NONE,
         )
         
-        #self._narrowed_writer = self._data_type._DataWriter_narrow(self._writer)
         self._dyn_narrowed_writer = _ddsc_lib.DDS_DynamicDataWriter_narrow(self._writer)
     
     def send(self, msg):
@@ -140,10 +136,10 @@ class Topic(object):
             if isinstance(v, int):
                 _ddsc_lib.DDS_DynamicData_set_long(sample, k, 0, v)
             elif isinstance(v, float):
-                _ddsc_lib.DDS_DynamicData_set_double(sample, "depth", 0, v)
+                _ddsc_lib.DDS_DynamicData_set_double(sample, k, 0, v)
             else:
                 raise TypeError((k, v))
-        #DDS_Long theInteger = 0;
+        
         _ddsc_lib.DDS_DynamicDataWriter_write(self._dyn_narrowed_writer, sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
         _ddsc_lib.DDS_DynamicDataTypeSupport_delete_data(self._support, sample)
     
@@ -160,6 +156,8 @@ class Topic(object):
             self._dds._participant,
             self._topic,
         )
+        # XXX unregister?
+        _ddsc_lib.DDS_DynamicDataTypeSupport_delete(self._support)
 
 class DDS(object):
     def __init__(self, domain_id=0):
@@ -261,5 +259,5 @@ if __name__ == '__main__':
     x = 1.
     while True:
         x += 1.245
-        t.send({'depth': x})
+        t.send(dict(depth=x, humidity=x+2, thermistertemp=x+3, humiditytemp=x+4))
         time.sleep(1)
