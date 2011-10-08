@@ -68,6 +68,33 @@ _ddsc_lib.DDS_Publisher_delete_datawriter.argtypes = [ctypes.POINTER(DDS_Publish
 _ddsc_lib.DDS_Publisher_delete_datawriter.errcheck = check_code
 
 
+class DDS_TypeCode(ctypes.Structure):
+    pass
+
+class DDS_DynamicDataTypeSupport(ctypes.Structure):
+    pass
+
+class DDS_DynamicData(ctypes.Structure):
+    pass
+
+_ddsc_lib.DDS_DynamicDataTypeSupport_new.argtypes = [ctypes.POINTER(DDS_TypeCode), ctypes.c_void_p]
+_ddsc_lib.DDS_DynamicDataTypeSupport_new.restype = ctypes.POINTER(DDS_DynamicDataTypeSupport)
+_ddsc_lib.DDS_DynamicDataTypeSupport_new.errcheck = check_none
+
+_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.argtypes = [ctypes.POINTER(DDS_DynamicDataTypeSupport)]
+_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.restype = ctypes.POINTER(DDS_DynamicData)
+_ddsc_lib.DDS_DynamicDataTypeSupport_create_data.errcheck = check_none
+
+_ddsc_lib.DDS_DynamicData_set_long.argtypes = [ctypes.POINTER(DDS_DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]
+_ddsc_lib.DDS_DynamicData_set_long.errcheck = check_code
+
+_ddsc_lib.DDS_DynamicData_set_double.argtypes = [ctypes.POINTER(DDS_DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]
+_ddsc_lib.DDS_DynamicData_set_double.errcheck = check_code
+
+_ddsc_lib.DDS_DynamicDataWriter_narrow.argtypes = [ctypes.POINTER(DDS_DataWriter)]
+_ddsc_lib.DDS_DynamicDataWriter_narrow.restype = ctypes.c_void_p
+_ddsc_lib.DDS_DynamicDataWriter_narrow.errcheck = check_none
+
 DDS_STATUS_MASK_NONE = ctypes.c_ulong(0)
 
 
@@ -97,12 +124,21 @@ class Topic(object):
             DDS_STATUS_MASK_NONE,
         )
         
-        self._narrowed_writer = self._data_type._DataWriter_narrow(self._writer)
+        #self._narrowed_writer = self._data_type._DataWriter_narrow(self._writer)
+        self._dyn_narrowed_writer = _ddsc_lib.DDS_DynamicDataWriter_narrow(self._writer)
     
     def send(self, msg):
-        instance = self._data_type._TypeSupport_create_data()
-        x = ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0))
-        self._data_type._DataWriter_write(self._narrowed_writer, instance, x)
+        support = _ddsc_lib.DDS_DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), _ddsc_lib.DDS_DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
+        sample = _ddsc_lib.DDS_DynamicDataTypeSupport_create_data(support) #sample = _ddsc_lib.DDS_DynamicData_new(tc, _ddsc_lib.DDS_DYNAMIC_DATA_PROPERTY_DEFAULT)
+        #_ddsc_lib.DDS_DynamicData_set_long(sample, "depth", 0, 5)
+        print msg
+        _ddsc_lib.DDS_DynamicData_set_double(sample, "depth", 0, msg['depth'])
+        #DDS_Long theInteger = 0;
+        #DDS_DynamicData_get_long(sample, &theInteger, "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED); 
+        print "fdasfas"
+        _ddsc.DDS_DynamicDataWriter_write(self._dyn_narrowed_writer, sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0)))
+        
+        _ddsc_lib.DDS_DynamicDataTypeSupport_delete_data(support, sample) # _ddsc_lib.DDS_DynamicData_delete(d)
     
     def __del__(self, _ddsc_lib=_ddsc_lib):
         _ddsc_lib.DDS_Publisher_delete_datawriter(
@@ -147,12 +183,19 @@ class DDS(object):
             _ddsc_lib.DDS_DomainParticipantFactory_get_instance(),
             self._participant,
         )
-        
+
 
 class LibraryType(object):
     def __init__(self, lib, name):
         self._lib, self._name = lib, name
         del lib, name
+    
+    def _TypeSupport_get_typecode(self):
+        f = getattr(self._lib, self._name + '_get_typecode')
+        f.argtypes = []
+        f.restype = ctypes.POINTER(DDS_TypeCode)
+        f.errcheck = check_none
+        return f()
     
     def _TypeSupport_get_type_name(self):
         f = getattr(self._lib, self._name + 'TypeSupport_get_type_name')
@@ -200,8 +243,13 @@ class Library(object):
         return LibraryType(self._lib, attr)
 
 if __name__ == '__main__':
+    import time
+    
     d = DDS()
     l = Library('../build/DDSMessages/libddsmessages2.so')
     t = d.get_topic('newtopic2', l.DepthMessage)
+    x = 1.
     while True:
-        t.send({})
+        x += 1.245
+        t.send({'depth': x})
+        time.sleep(1)
