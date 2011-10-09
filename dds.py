@@ -12,7 +12,20 @@ class Error(Exception):
 def check_code(result, func, arguments, Error=Error):
     if result == 0:
         return
-    raise Error(result)
+    raise Error({
+        1: 'error',
+        2: 'unsupported',
+        3: 'bad parameter',
+        4: 'precondition not met',
+        5: 'out of resources',
+        6: 'not enabled',
+        7: 'immutable policy',
+        8: 'inconsistant policy',
+        9: 'already deleted',
+        10: 'timeout',
+        11: 'no data',
+        12: 'illegal operation',
+    }[result])
 
 def check_none(result, func, arguments, Error=Error):
     if result is None:
@@ -34,16 +47,28 @@ class DDSFunc(object):
         return contents
 
 @apply
+class DDSUInt(object):
+    def __getattr__(self, attr):
+        #help(_ddsc_lib)
+        #print "XXX", attr, ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_ulong)).contents, ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_uint)).contents
+        contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_uint)).contents
+        #print attr, contents
+        setattr(self, attr, contents)
+        return contents
+
+@apply
 class DDSType(object):
     def __getattr__(self, attr):
         contents = type(attr, (ctypes.Structure,), {})
         
-        # takes advantage of POINTERs being cached to make type pointers dynamically present bound methods
         def g(self2, attr2):
             f = getattr(DDSFunc, attr + '_' + attr2)
             def p(*args):
                 return f(self2, *args)
             return p
+        # make structs dynamically present bound methods
+        contents.__getattr__ = g
+        # takes advantage of POINTERs being cached to make type pointers do the same
         ctypes.POINTER(contents).__getattr__ = g
         
         setattr(self, attr, contents)
@@ -54,6 +79,18 @@ DDSType.Topic._fields_ = [
     ('_as_TopicDescription', ctypes.POINTER(DDSType.TopicDescription)),
 ]
 ctypes.POINTER(DDSType.Topic).as_topicdescription = lambda self: self.contents._as_TopicDescription
+
+DDSType.DynamicDataSeq._fields_ = DDSType.SampleInfoSeq._fields_ = [
+    ('_owned', ctypes.c_bool),
+    ('_contiguous_buffer', ctypes.c_void_p),
+    ('_discontiguous_buffer', ctypes.c_void_p),
+    ('_maximum', ctypes.c_ulong),
+    ('_length', ctypes.c_ulong),
+    ('_sequence_init', ctypes.c_long),
+    ('_read_token1', ctypes.c_void_p),
+    ('_read_token2', ctypes.c_void_p),
+    ('_elementPointersAllocation', ctypes.c_bool),
+]
 
 # some types
 
@@ -93,6 +130,8 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
     (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
     (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulonglong]),
+    (DDSFunc.DynamicData_get_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_double), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_type, check_none, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicData_get_type_kind, None, ctypes.c_ulong, [ctypes.POINTER(DDSType.DynamicData)]),
@@ -101,12 +140,18 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataWriter_write, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
     
     (DDSFunc.DynamicDataReader_narrow, check_none, ctypes.POINTER(DDSType.DynamicDataReader), [ctypes.POINTER(DDSType.DataReader)]),
-    (DDSFunc.DynamicDataReader_read, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
+    (DDSFunc.DynamicDataReader_take, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq), ctypes.c_long, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]),
     
     (DDSFunc.TypeCode_kind, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_count, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_name, check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), ctypes.c_ulong, ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_type, check_ex, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_ulong, ctypes.POINTER(DDS_ExceptionCode_t)]),
+    
+    (DDSFunc.DynamicDataSeq_initialize, None, ctypes.c_bool, [ctypes.POINTER(DDSType.DynamicDataSeq)]),
+    (DDSFunc.DynamicDataSeq_get_length, None, ctypes.c_ulong, [ctypes.POINTER(DDSType.DynamicDataSeq)]),
+    (DDSFunc.DynamicDataSeq_get_reference, check_none, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.c_long]),
+    
+    (DDSFunc.SampleInfoSeq_initialize, None, ctypes.c_bool, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
 ])
 
 def parse_into_dd(obj, dd):
@@ -130,6 +175,35 @@ def parse_into_dd(obj, dd):
                 # delete res
             else:
                 raise NotImplementedError(kind2)
+    else:
+        raise NotImplementedError(kind)
+
+def unpack_dd(dd):
+    kind = dd.get_type_kind()
+    if kind == 10:
+        obj = {}
+        tc = dd.get_type()
+        for i in xrange(tc.member_count(ex())):
+            name = tc.member_name(i, ex())
+            kind2 = tc.member_type(i, ex()).kind(ex())
+            if kind2 == 6:
+                inner = ctypes.c_double()
+                dd.get_double(ctypes.byref(inner), name, 0)
+                obj[name] = inner.value
+            elif kind2 == 18:
+                inner = ctypes.c_ulonglong()
+                dd.get_ulonglong(ctypes.byref(inner), name, 0)
+                obj[name] = inner.value
+            elif kind2 == 10:
+                raise NotImplementedError()
+                res = DDSFunc.DynamicData_new(None, DDSFunc.DYNAMIC_DATA_PROPERTY_DEFAULT)
+                dd.bind_complex_member(res, tc.member_name(i, ex()), 0)
+                parse_into_dd(obj[tc.member_name(i, ex())], dd)
+                # unbind
+                # delete res
+            else:
+                raise NotImplementedError(kind2)
+        return obj
     else:
         raise NotImplementedError(kind)
 
@@ -177,8 +251,14 @@ class Topic(object):
     
     def recv(self):
         # XXX make actually receive something
-        sample = self._dyn_narrowed_reader.take()
-        DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), 'myInteger', DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
+        data_seq = DDSType.DynamicDataSeq()
+        DDSFunc.DynamicDataSeq_initialize(data_seq)
+        info_seq = DDSType.SampleInfoSeq()
+        DDSFunc.SampleInfoSeq_initialize(info_seq)
+        #print self._dyn_narrowed_reader.take, (ctypes.byref(data_seq), ctypes.byref(info_seq), 1, DDSUInt.ANY_SAMPLE_STATE, DDSUInt.ANY_VIEW_STATE, DDSUInt.ANY_INSTANCE_STATE)
+        self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, DDSUInt.ANY_SAMPLE_STATE, DDSUInt.ANY_VIEW_STATE, DDSUInt.ANY_INSTANCE_STATE)
+        return unpack_dd(data_seq.get_reference(0))
+        #DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), 'myInteger', DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
     def __del__(self):
         self._dds._publisher.delete_datawriter(self._writer)
@@ -248,17 +328,29 @@ class Library(object):
     def __getattr__(self, attr):
         return LibraryType(self._lib, attr)
 
-def main():
+def main(recv=False):
     import time
     
     d = DDS()
     l = Library('../build/DDSMessages/libddsmessages2.so')
     t = d.get_topic('newtopic2', l.DepthMessage)
-    x = 1.
-    while True:
-        x += 1.245
-        t.send(dict(timestamp=int(x*100), depth=x, humidity=x+2, thermistertemp=x+3, humiditytemp=x+4))
-        time.sleep(1)
+    
+    import traceback
+    
+    if recv:
+        while True:
+            time.sleep(1.2)
+            try:
+                print t.recv()
+            except:
+                traceback.print_exc()
+    else:
+        x = 1.
+        while True:
+            x += 1.245
+            t.send(dict(timestamp=int(x*100), depth=x, humidity=x+2, thermistertemp=x+3, humiditytemp=x+4))
+            time.sleep(1)
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(['send', 'recv'].index(sys.argv[1]))
