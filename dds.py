@@ -327,35 +327,3 @@ class Library(object):
     
     def __getattr__(self, attr):
         return LibraryType(self._lib, attr)
-
-def main(recv=False):
-    import time
-    
-    d = DDS()
-    l = Library('../build/DDSMessages/libddsmessages2.so')
-    t = d.get_topic('newtopic2', l.DepthMessage)
-    
-    import traceback
-    
-    if recv:
-        while True:
-            time.sleep(.01)
-            try:
-                msg = t.recv()
-            except Error, e:
-                if e.message == 'no data':
-                    continue
-                raise
-            print "Received", msg
-    else:
-        x = 1.
-        while True:
-            x += 1.245
-            msg = dict(timestamp=int(x*100), depth=x, humidity=x+2, thermistertemp=x+3, humiditytemp=x+4)
-            print "Sending", msg
-            t.send(msg)
-            time.sleep(1)
-
-if __name__ == '__main__':
-    import sys
-    main(['send', 'recv'].index(sys.argv[1]))
