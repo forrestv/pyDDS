@@ -29,24 +29,22 @@ def check_ex(result, func, arguments):
 @apply
 class DDSFunc(object):
     def __getattr__(self, attr):
-        contents = getattr(_ddsc_lib, "DDS_" + attr)
+        contents = getattr(_ddsc_lib, 'DDS_' + attr)
         setattr(self, attr, contents)
         return contents
 
 @apply
 class DDSType(object):
     def __getattr__(self, attr):
+        contents = type(attr, (ctypes.Structure,), {})
+        
+        # takes advantage of POINTERs being cached to make type pointers dynamically present bound methods
         def g(self2, attr2):
             f = getattr(DDSFunc, attr + '_' + attr2)
             def p(*args):
                 return f(self2, *args)
             return p
-        
-        contents = type(attr, (ctypes.Structure,), {})
-        
-        # takes advantage of POINTERs being cached
-        p = ctypes.POINTER(contents)
-        p.__getattr__ = g
+        ctypes.POINTER(contents).__getattr__ = g
         
         setattr(self, attr, contents)
         return contents
@@ -66,7 +64,7 @@ def ex():
 
 # Function prototypes
 
-map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) if errcheck is not None else None, setattr(p, "restype", restype), setattr(p, "argtypes", argtypes)), [
+map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) if errcheck is not None else None, setattr(p, 'restype', restype), setattr(p, 'argtypes', argtypes)), [
     (DDSFunc.DomainParticipantFactory_get_instance, check_none, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     (DDSFunc.DomainParticipantFactory_create_participant, check_none, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
     (DDSFunc.DomainParticipantFactory_delete_participant, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.POINTER(DDSType.DomainParticipant)]),
@@ -180,7 +178,7 @@ class Topic(object):
     def recv(self):
         # XXX make actually receive something
         sample = self._dyn_narrowed_reader.take()
-        DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
+        DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), 'myInteger', DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
     def __del__(self):
         self._dds._publisher.delete_datawriter(self._writer)
