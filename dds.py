@@ -51,6 +51,12 @@ class DDSType(object):
         setattr(self, attr, contents)
         return contents
 
+DDSType.Topic._fields_ = [
+    ('_as_Entity', ctypes.c_void_p),
+    ('_as_TopicDescription', ctypes.POINTER(DDSType.TopicDescription)),
+]
+ctypes.POINTER(DDSType.Topic).as_topicdescription = lambda self: self.contents._as_TopicDescription
+
 # some types
 
 DDS_ReturnCode_t = ctypes.c_int
@@ -67,17 +73,23 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) i
     
     (DDSFunc.DomainParticipant_create_publisher, check_none, ctypes.POINTER(DDSType.Publisher), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
     (DDSFunc.DomainParticipant_delete_publisher, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Publisher)]),
+    (DDSFunc.DomainParticipant_create_subscriber, check_none, ctypes.POINTER(DDSType.Subscriber), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.DomainParticipant_delete_subscriber, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Subscriber)]),
     (DDSFunc.DomainParticipant_create_topic, check_none, ctypes.POINTER(DDSType.Topic), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
     (DDSFunc.DomainParticipant_delete_topic, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Topic)]),
     
     (DDSFunc.Publisher_create_datawriter, check_none, ctypes.POINTER(DDSType.DataWriter), [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.Topic), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
     (DDSFunc.Publisher_delete_datawriter, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.DataWriter)]),
     
+    (DDSFunc.Subscriber_create_datareader, check_none, ctypes.POINTER(DDSType.DataReader), [ctypes.POINTER(DDSType.Subscriber), ctypes.POINTER(DDSType.TopicDescription), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
+    (DDSFunc.Subscriber_delete_datareader, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.Subscriber), ctypes.POINTER(DDSType.DataReader)]),
+    
     (DDSFunc.DynamicDataTypeSupport_new, check_none, ctypes.POINTER(DDSType.DynamicDataTypeSupport), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
+    (DDSFunc.DynamicDataTypeSupport_delete, None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
     (DDSFunc.DynamicDataTypeSupport_register_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
     (DDSFunc.DynamicDataTypeSupport_unregister_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
     (DDSFunc.DynamicDataTypeSupport_create_data, check_none, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
-    (DDSFunc.DynamicDataTypeSupport_delete, None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
+    (DDSFunc.DynamicDataTypeSupport_delete_data, check_none, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     
     (DDSFunc.DynamicData_new, check_none, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
     (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
@@ -89,6 +101,9 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, "errcheck", errcheck) i
     
     (DDSFunc.DynamicDataWriter_narrow, check_none, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
     (DDSFunc.DynamicDataWriter_write, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
+    
+    (DDSFunc.DynamicDataReader_narrow, check_none, ctypes.POINTER(DDSType.DynamicDataReader), [ctypes.POINTER(DDSType.DataReader)]),
+    (DDSFunc.DynamicDataReader_read, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
     
     (DDSFunc.TypeCode_kind, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_count, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
@@ -144,8 +159,15 @@ class Topic(object):
             None,
             0,
         )
-        
         self._dyn_narrowed_writer = DDSFunc.DynamicDataWriter_narrow(self._writer)
+        
+        self._reader = self._dds._subscriber.create_datareader(
+            self._topic.as_topicdescription(),
+            DDSFunc.DATAREADER_QOS_DEFAULT,
+            None,
+            0,
+        )
+        self._dyn_narrowed_reader = DDSFunc.DynamicDataReader_narrow(self._reader)
     
     def send(self, msg):
         sample = self._support.create_data()
@@ -157,10 +179,12 @@ class Topic(object):
     
     def recv(self):
         # XXX make actually receive something
+        sample = self._dyn_narrowed_reader.take()
         DDS_DynamicData_get_long(sample, ctypes.byref(theInteger), "myInteger", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
     
     def __del__(self):
         self._dds._publisher.delete_datawriter(self._writer)
+        self._dds._subscriber.delete_datareader(self._reader)
         self._dds._participant.delete_topic(self._topic)
         self._support.unregister_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
         self._support.delete()
@@ -179,12 +203,19 @@ class DDS(object):
             None,
             0,
         )
+        
+        self._subscriber = self._participant.create_subscriber(
+            DDSFunc.SUBSCRIBER_QOS_DEFAULT,
+            None,
+            0,
+        )
     
     def get_topic(self, topic_name, data_type):
         # XXX cache this to handle it being called multiple times
         return Topic(self, topic_name, data_type)
     
     def __del__(self):
+        self._participant.delete_subscriber(self._subscriber)
         self._participant.delete_publisher(self._publisher)
         
         # very slow for some reason
