@@ -133,6 +133,8 @@ DDS_SampleStateMask = DDS_UnsignedLong
 DDS_ViewStateMask = DDS_UnsignedLong
 DDS_InstanceStateMask = DDS_UnsignedLong
 
+DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
+
 # Function prototypes
 
 _dyn_types = dict(
@@ -245,7 +247,7 @@ class TCKind(object):
     RAW_BYTES = 0x7e
     RAW_BYTES_KEYED = 0x7f
 
-def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
+def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED):
     tc = ctypes.POINTER(DDSType.TypeCode)()
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
@@ -317,7 +319,7 @@ def write_into_dd(obj, dd):
     else:
         raise NotImplementedError(kind)
 
-def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
+def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED):
     tc = ctypes.POINTER(DDSType.TypeCode)()
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
