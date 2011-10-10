@@ -250,14 +250,17 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
     kind = tc.kind(ex())
-    # XXX check bounds on this and others
     if kind == TCKind.SHORT:
+        if not -2**15 <= obj < 2**15: raise ValueError()
         dd.set_short(member_name, member_id, obj)
     elif kind == TCKind.LONG:
+        if not -2**31 <= obj < 2**31: raise ValueError()
         dd.set_long(member_name, member_id, obj)
     elif kind == TCKind.USHORT:
+        if not 0 <= obj < 2**16: raise ValueError()
         dd.set_ushort(member_name, member_id, obj)
     elif kind == TCKind.ULONG:
+        if not 0 <= obj < 2**32: raise ValueError()
         dd.set_ulong(member_name, member_id, obj)
     elif kind == TCKind.FLOAT:
         dd.set_float(member_name, member_id, obj)
@@ -268,6 +271,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
     elif kind == TCKind.CHAR:
         dd.set_char(member_name, member_id, obj)
     elif kind == TCKind.OCTET:
+        if not 0 <= obj < 2**8: raise ValueError()
         dd.set_octet(member_name, member_id, obj)
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
         inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
@@ -284,8 +288,10 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
             raise ValueError('strings can not contain null characters')
         dd.set_string(member_name, member_id, obj)
     elif kind == TCKind.LONGLONG:
+        if not -2**63 <= obj < 2**63: raise ValueError()
         dd.set_ulonglong(member_name, member_id, obj)
     elif kind == TCKind.ULONGLONG:
+        if not 0 <= obj < 2**64: raise ValueError()
         dd.set_ulonglong(member_name, member_id, obj)
     elif kind == TCKind.LONGDOUBLE:
         dd.set_longdouble(member_name, member_id, obj)
