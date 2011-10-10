@@ -142,6 +142,7 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataTypeSupport_unregister_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
     (DDSFunc.DynamicDataTypeSupport_create_data, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
     (DDSFunc.DynamicDataTypeSupport_delete_data, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
+    (DDSFunc.DynamicDataTypeSupport_print_data, None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     
     (DDSFunc.DynamicData_new, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
     (DDSFunc.DynamicData_set_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char_p]),
@@ -236,22 +237,20 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
         dd.set_char(member_name, member_id, obj)
     elif kind == TCKind.OCTET:
         dd.set_octet(member_name, member_id, obj)
-    elif kind == TCKind.STRUCT:
-        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
-        dd.bind_complex_member(res, member_name, member_id)
-        write_into_dd(obj, res)
-        dd.unbind_complex_member(res)
-        res.delete()
+    elif kind == TCKind.STRUCT or kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
+        inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        try:
+            dd.bind_complex_member(inner, member_name, member_id)
+            try:
+                write_into_dd(obj, inner)
+            finally:
+                dd.unbind_complex_member(inner)
+        finally:
+            inner.delete()
     elif kind == TCKind.STRING:
         if '\0' in obj:
             raise ValueError('strings can not contain null characters')
         dd.set_string(member_name, member_id, obj)
-    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
-        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
-        dd.bind_complex_member(res, member_name, member_id)
-        write_into_dd(obj, res)
-        dd.unbind_complex_member(res)
-        res.delete()
     elif kind == TCKind.LONGLONG:
         dd.set_ulonglong(member_name, member_id, obj)
     elif kind == TCKind.ULONGLONG:
@@ -297,26 +296,21 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
         inner = ctypes.c_bool()
         dd.get_boolean(ctypes.byref(inner), member_name, member_id)
         return inner.value
-    elif kind == TCKind.STRUCT:
-        raise NotImplementedError()
-        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
-        dd.bind_complex_member(res, member_name, member_id)
-        x = unpack_dd(dd)
-        dd.unbind_complex_member(res)
-        res.delete()
-        return x
+    elif kind == TCKind.STRUCT or kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
+        inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        try:
+            dd.bind_complex_member(inner, member_name, member_id)
+            try:
+                return unpack_dd(inner)
+            finally:
+                dd.unbind_complex_member(inner)
+        finally:
+            inner.delete()
     elif kind == TCKind.STRING:
         inner = ctypes.c_char_p(None)
         inner_size = ctypes.c_ulong(0)
         dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
         return inner.value[:inner_size.value]
-    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
-        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
-        dd.bind_complex_member(res, member_name, member_id)
-        x = unpack_dd(res)
-        dd.unbind_complex_member(res)
-        res.delete()
-        return x
     elif kind == TCKind.ULONGLONG:
         inner = ctypes.c_ulonglong()
         dd.get_ulonglong(ctypes.byref(inner), member_name, member_id)
@@ -390,9 +384,10 @@ class Topic(object):
         info_seq = DDSType.SampleInfoSeq()
         DDSFunc.SampleInfoSeq_initialize(info_seq)
         self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, DDSUInt.ANY_SAMPLE_STATE, DDSUInt.ANY_VIEW_STATE, DDSUInt.ANY_INSTANCE_STATE)
-        res = unpack_dd(data_seq.get_reference(0))
-        self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
-        return res
+        try:
+            return unpack_dd(data_seq.get_reference(0))
+        finally:
+            self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
     
     def __del__(self):
         self._dds._publisher.delete_datawriter(self._writer)
