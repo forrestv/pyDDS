@@ -1,8 +1,10 @@
-import struct
 import ctypes
+import os
+import struct
 
-_ddscore_lib = ctypes.CDLL('/home/forrest/RTI/ndds.4.5d/lib/x64Linux2.6gcc4.1.1/libnddscore.so', ctypes.RTLD_GLOBAL)
-_ddsc_lib = ctypes.CDLL('/home/forrest/RTI/ndds.4.5d/lib/x64Linux2.6gcc4.1.1/libnddsc.so')
+# XXX 32bit path
+_ddscore_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', 'x64Linux2.6gcc4.1.1', 'libnddscore.so'), ctypes.RTLD_GLOBAL)
+_ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', 'x64Linux2.6gcc4.1.1', 'libnddsc.so'))
 
 # Error checkers
 
