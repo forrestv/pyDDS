@@ -215,6 +215,10 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataSeq_get_reference, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.c_long]),
     
     (DDSFunc.SampleInfoSeq_initialize, None, ctypes.c_bool, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
+    
+    (DDSFunc.String_free, None, None, [ctypes.c_char_p]),
+    
+    (DDSFunc.Wstring_free, None, None, [ctypes.c_wchar_p]),
 ])
 
 del type(DDSFunc).__getattr__
@@ -372,9 +376,11 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
             inner.delete()
     elif kind == TCKind.STRING:
         inner = ctypes.c_char_p(None)
-        inner_size = ctypes.c_ulong(0)
-        dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
-        return inner.value[:inner_size.value]
+        try:
+            dd.get_string(ctypes.byref(inner), None, member_name, member_id)
+            return inner.value
+        finally:
+            DDSFunc.String_free(inner)
     elif kind == TCKind.LONGLONG:
         inner = DDS_LongLong()
         dd.get_longlong(ctypes.byref(inner), member_name, member_id)
@@ -393,9 +399,11 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
         return inner.value
     elif kind == TCKind.WSTRING:
         inner = ctypes.c_wchar_p(None)
-        inner_size = ctypes.c_ulong(0) # XXX not sure what this refers to - number of bytes or characters?
-        dd.get_wstring(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
-        return inner.value[:inner_size.value]
+        try:
+            dd.get_wstring(ctypes.byref(inner), None, member_name, member_id)
+            return inner.value
+        finally:
+            DDSFunc.Wstring_free(inner)
     else:
         raise NotImplementedError(kind)
 
