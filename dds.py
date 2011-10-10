@@ -147,6 +147,7 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
     (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulonglong]),
     (DDSFunc.DynamicData_get_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_double), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_long), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long]),
@@ -267,7 +268,11 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
     kind = tc.kind(ex())
-    if kind == TCKind.DOUBLE:
+    if kind == TCKind.LONG:
+        inner = ctypes.c_long()
+        dd.get_long(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.DOUBLE:
         inner = ctypes.c_double()
         dd.get_double(ctypes.byref(inner), member_name, member_id)
         return inner.value
