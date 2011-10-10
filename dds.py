@@ -336,17 +336,17 @@ def unpack_dd(dd):
         raise NotImplementedError(kind)
 
 class Topic(object):
-    def __init__(self, dds, topic_name, data_type):
+    def __init__(self, dds, name, data_type):
         self._dds = dds
-        self._topic_name = topic_name
+        self.name = name
         self._data_type = data_type
-        del dds, topic_name, data_type
+        del dds, name, data_type
         
         self._support = DDSFunc.DynamicDataTypeSupport_new(self._data_type._get_typecode(), DDSVoidP.DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
         self._support.register_type(self._dds._participant, self._data_type.name)
         
         self._topic = self._dds._participant.create_topic(
-            self._topic_name,
+            self.name,
             self._data_type.name,
             DDSVoidP.TOPIC_QOS_DEFAULT,
             None,
@@ -417,9 +417,9 @@ class DDS(object):
             0,
         )
     
-    def get_topic(self, topic_name, data_type):
+    def get_topic(self, name, data_type):
         # XXX cache this to handle it being called multiple times
-        return Topic(self, topic_name, data_type)
+        return Topic(self, name, data_type)
     
     def __del__(self):
         self._participant.delete_subscriber(self._subscriber)

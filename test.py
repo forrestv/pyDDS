@@ -27,11 +27,11 @@ if recv:
             if e.message == 'no data':
                 continue
             raise
-        print "Received %r on %s" % (msg, t._topic_name)
+        print "Received %r on %s" % (msg, t.name)
 else:
     while True:
         t, mf = random.choice(topics)
         msg = mf()
-        print "Sending %r on %s" % (msg, t._topic_name)
+        print "Sending %r on %s" % (msg, t.name)
         t.send(msg)
         time.sleep(.5)
