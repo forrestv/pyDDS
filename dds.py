@@ -147,14 +147,20 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicData_new, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
     (DDSFunc.DynamicData_set_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char_p]),
     (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
+    (DDSFunc.DynamicData_set_ulong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulong]),
+    (DDSFunc.DynamicData_set_short, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_short]),
+    (DDSFunc.DynamicData_set_ushort, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ushort]),
     (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
     (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulonglong]),
     (DDSFunc.DynamicData_set_boolean, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_bool]),
     (DDSFunc.DynamicData_get_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_double), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_boolean, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_bool), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_long), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_short, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_short), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_ushort, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ushort), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_ulong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_unbind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicData_get_member_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, ctypes.c_long]),
@@ -237,7 +243,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
         dd.set_char(member_name, member_id, obj)
     elif kind == TCKind.OCTET:
         dd.set_octet(member_name, member_id, obj)
-    elif kind == TCKind.STRUCT or kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
+    elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
         inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
         try:
             dd.bind_complex_member(inner, member_name, member_id)
@@ -284,9 +290,25 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
     kind = tc.kind(ex())
-    if kind == TCKind.LONG:
+    if kind == TCKind.SHORT:
+        inner = ctypes.c_short()
+        dd.get_short(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.LONG:
         inner = ctypes.c_long()
         dd.get_long(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.USHORT:
+        inner = ctypes.c_ushort()
+        dd.get_ushort(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.ULONG:
+        inner = ctypes.c_ulong()
+        dd.get_ulong(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.FLOAT:
+        inner = ctypes.c_float()
+        dd.get_float(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.DOUBLE:
         inner = ctypes.c_double()
@@ -296,7 +318,15 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
         inner = ctypes.c_bool()
         dd.get_boolean(ctypes.byref(inner), member_name, member_id)
         return inner.value
-    elif kind == TCKind.STRUCT or kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
+    elif kind == TCKind.CHAR:
+        inner = ctypes.c_char()
+        dd.get_char(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.OCTET:
+        inner = ctypes.c_ubyte() # XXX unsigned?
+        dd.get_octet(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
         inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
         try:
             dd.bind_complex_member(inner, member_name, member_id)
@@ -311,10 +341,27 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
         inner_size = ctypes.c_ulong(0)
         dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
         return inner.value[:inner_size.value]
+    elif kind == TCKind.LONGLONG:
+        inner = ctypes.c_longlong()
+        dd.get_longlong(ctypes.byref(inner), member_name, member_id)
+        return inner.value
     elif kind == TCKind.ULONGLONG:
         inner = ctypes.c_ulonglong()
         dd.get_ulonglong(ctypes.byref(inner), member_name, member_id)
         return inner.value
+    elif kind == TCKind.LONGDOUBLE:
+        inner = ctypes.c_longdouble()
+        dd.get_longdouble(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.WCHAR:
+        inner = ctypes.c_wchar()
+        dd.get_wchar(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.WSTRING:
+        inner = ctypes.c_wchar_p(None)
+        inner_size = ctypes.c_ulong(0) # XXX not sure what this refers to - number of bytes or characters?
+        dd.get_wstring(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
+        return inner.value[:inner_size.value]
     else:
         raise NotImplementedError(kind)
 
