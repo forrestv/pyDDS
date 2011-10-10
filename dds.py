@@ -51,6 +51,9 @@ def check_ex(result, func, arguments):
 
 # Function and structure accessors
 
+def get(name, type):
+    return ctypes.cast(getattr(_ddsc_lib, 'DDS_' + name), ctypes.POINTER(type)).contents
+
 @apply
 class DDSFunc(object):
     def __getattr__(self, attr):
@@ -59,16 +62,9 @@ class DDSFunc(object):
         return contents
 
 @apply
-class DDSUInt(object):
-    def __getattr__(self, attr):
-        contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_uint)).contents
-        setattr(self, attr, contents)
-        return contents
-
-@apply
 class DDSVoidP(object):
     def __getattr__(self, attr):
-        contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_void_p))
+        contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.c_void_p)
         setattr(self, attr, contents)
         return contents
 
@@ -110,14 +106,49 @@ DDSType.DynamicDataSeq._fields_ = DDSType.SampleInfoSeq._fields_ = [
 ]
 
 # some types
+enum = ctypes.c_int
 
-DDS_ReturnCode_t = ctypes.c_int
-DDS_ExceptionCode_t = ctypes.c_int
+DDS_Char = ctypes.c_char
+DDS_Wchar = ctypes.c_wchar
+DDS_Octet = ctypes.c_ubyte
+DDS_Short = ctypes.c_int16
+DDS_UnsignedShort = ctypes.c_uint16
+DDS_Long = ctypes.c_int32
+DDS_UnsignedLong = ctypes.c_uint32
+DDS_LongLong = ctypes.c_int64
+DDS_UnsignedLongLong = ctypes.c_uint64
+DDS_Float = ctypes.c_float
+DDS_Double = ctypes.c_double
+DDS_LongDouble = ctypes.c_longdouble
+DDS_Boolean = ctypes.c_bool
+DDS_Enum = DDS_UnsignedLong
+
+DDS_DynamicDataMemberId = DDS_Long
+DDS_ReturnCode_t = DDS_Enum
+DDS_ExceptionCode_t = DDS_Enum
 def ex():
     return ctypes.byref(DDS_ExceptionCode_t())
 
+DDS_SampleStateMask = DDS_UnsignedLong
+DDS_ViewStateMask = DDS_UnsignedLong
+DDS_InstanceStateMask = DDS_UnsignedLong
+
 # Function prototypes
 
+_dyn_types = dict(
+    long=DDS_Long,
+    ulong=DDS_UnsignedLong,
+    short=DDS_Short,
+    ushort=DDS_UnsignedShort,
+    longlong=DDS_LongLong,
+    ulonglong=DDS_UnsignedLongLong,
+    float=DDS_Float,
+    double=DDS_Double,
+    boolean=DDS_Boolean,
+    octet=DDS_Octet,
+    char=DDS_Char,
+    wchar=DDS_Wchar,
+)
 map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) if errcheck is not None else None, setattr(p, 'restype', restype), setattr(p, 'argtypes', argtypes)), [
     (DDSFunc.DomainParticipantFactory_get_instance, check_null, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     (DDSFunc.DomainParticipantFactory_create_participant, check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]),
@@ -144,50 +175,31 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataTypeSupport_delete_data, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicDataTypeSupport_print_data, None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     
-    (DDSFunc.DynamicData_new, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
-    (DDSFunc.DynamicData_get_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_long), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_ulong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_short, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_short), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_ushort, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ushort), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_longlong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_longlong), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_float, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_float), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_double), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_longdouble, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_longdouble), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_boolean, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_bool), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_octet, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_char, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_wchar, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_wstring, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
-    (DDSFunc.DynamicData_set_ulong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulong]),
-    (DDSFunc.DynamicData_set_short, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_short]),
-    (DDSFunc.DynamicData_set_ushort, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ushort]),
-    (DDSFunc.DynamicData_set_longlong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_longlong]),
-    (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulonglong]),
-    (DDSFunc.DynamicData_set_float, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_float]),
-    (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
-    (DDSFunc.DynamicData_set_longdouble, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_longdouble]),
-    (DDSFunc.DynamicData_set_boolean, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_bool]),
-    (DDSFunc.DynamicData_set_octet, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ubyte]),
-    (DDSFunc.DynamicData_set_char, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char]),
-    (DDSFunc.DynamicData_set_wchar, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char]),
-    (DDSFunc.DynamicData_set_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char_p]),
-    (DDSFunc.DynamicData_set_wstring, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_wchar_p]),    
-    (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_new, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataProperty)]),
+] + [
+    (getattr(DDSFunc, "DynamicData_get_" + k), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(v), ctypes.c_char_p, DDS_DynamicDataMemberId])
+        for k, v in _dyn_types.iteritems()
+] + [
+    (getattr(DDSFunc, "DynamicData_set_" + k), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, v])
+        for k, v in _dyn_types.iteritems()
+] + [
+    (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
+    (DDSFunc.DynamicData_get_wstring, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
+    (DDSFunc.DynamicData_set_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, ctypes.c_char_p]),
+    (DDSFunc.DynamicData_set_wstring, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, ctypes.c_wchar_p]),    
+    (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     (DDSFunc.DynamicData_unbind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData)]),
-    (DDSFunc.DynamicData_get_member_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, ctypes.c_long]),
-    (DDSFunc.DynamicData_get_member_count, None, ctypes.c_ulong, [ctypes.POINTER(DDSType.DynamicData)]),
+    (DDSFunc.DynamicData_get_member_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, DDS_DynamicDataMemberId]),
+    (DDSFunc.DynamicData_get_member_count, None, DDS_UnsignedLong, [ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicData_get_type, check_null, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.DynamicData)]),
-    (DDSFunc.DynamicData_get_type_kind, None, ctypes.c_ulong, [ctypes.POINTER(DDSType.DynamicData)]),
+    (DDSFunc.DynamicData_get_type_kind, None, enum, [ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicData_delete, None, None, [ctypes.POINTER(DDSType.DynamicData)]),
     
     (DDSFunc.DynamicDataWriter_narrow, check_null, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
     (DDSFunc.DynamicDataWriter_write, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.c_void_p]),
     
     (DDSFunc.DynamicDataReader_narrow, check_null, ctypes.POINTER(DDSType.DynamicDataReader), [ctypes.POINTER(DDSType.DataReader)]),
-    (DDSFunc.DynamicDataReader_take, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq), ctypes.c_long, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]),
+    (DDSFunc.DynamicDataReader_take, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq), DDS_Long, DDS_SampleStateMask, DDS_ViewStateMask, DDS_InstanceStateMask]),
     (DDSFunc.DynamicDataReader_return_loan, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq)]),
     
     (DDSFunc.TypeCode_name, check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
@@ -258,7 +270,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
     elif kind == TCKind.OCTET:
         dd.set_octet(member_name, member_id, obj)
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
-        inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
         try:
             dd.bind_complex_member(inner, member_name, member_id)
             try:
@@ -305,43 +317,43 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
     
     kind = tc.kind(ex())
     if kind == TCKind.SHORT:
-        inner = ctypes.c_short()
+        inner = DDS_Short()
         dd.get_short(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.LONG:
-        inner = ctypes.c_long()
+        inner = DDS_Long()
         dd.get_long(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.USHORT:
-        inner = ctypes.c_ushort()
+        inner = DDS_UnsignedShort()
         dd.get_ushort(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.ULONG:
-        inner = ctypes.c_ulong()
+        inner = DDS_UnsignedLong()
         dd.get_ulong(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.FLOAT:
-        inner = ctypes.c_float()
+        inner = DDS_Float()
         dd.get_float(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.DOUBLE:
-        inner = ctypes.c_double()
+        inner = DDS_Double()
         dd.get_double(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.BOOLEAN:
-        inner = ctypes.c_bool()
+        inner = DDS_Boolean()
         dd.get_boolean(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.CHAR:
-        inner = ctypes.c_char()
+        inner = DDS_Char()
         dd.get_char(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.OCTET:
-        inner = ctypes.c_ubyte() # XXX unsigned?
+        inner = DDS_Octet()
         dd.get_octet(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
-        inner = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
         try:
             dd.bind_complex_member(inner, member_name, member_id)
             try:
@@ -356,19 +368,19 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
         dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
         return inner.value[:inner_size.value]
     elif kind == TCKind.LONGLONG:
-        inner = ctypes.c_longlong()
+        inner = DDS_LongLong()
         dd.get_longlong(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.ULONGLONG:
-        inner = ctypes.c_ulonglong()
+        inner = DDS_UnsignedLongLong()
         dd.get_ulonglong(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.LONGDOUBLE:
-        inner = ctypes.c_longdouble()
+        inner = DDS_LongDouble()
         dd.get_longdouble(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.WCHAR:
-        inner = ctypes.c_wchar()
+        inner = DDS_Wchar()
         dd.get_wchar(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.WSTRING:
@@ -444,7 +456,7 @@ class Topic(object):
         DDSFunc.DynamicDataSeq_initialize(data_seq)
         info_seq = DDSType.SampleInfoSeq()
         DDSFunc.SampleInfoSeq_initialize(info_seq)
-        self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, DDSUInt.ANY_SAMPLE_STATE, DDSUInt.ANY_VIEW_STATE, DDSUInt.ANY_INSTANCE_STATE)
+        self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
         try:
             return unpack_dd(data_seq.get_reference(0))
         finally:
