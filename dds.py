@@ -35,7 +35,18 @@ def check_none(result, func, arguments, Error=Error):
 def check_ex(result, func, arguments):
     if arguments[-1]._obj.value == 0:
         return result
-    raise Error(arguments[-1]._obj)
+    raise Error({
+        1: '(user)',
+        2: '(system)',
+        3: 'bad param (system)',
+        4: 'no memory (system)',
+        5: 'bad typecode (system)',
+        6: 'badkind (user)',
+        7: 'bounds (user)',
+        8: 'immutable typecode (system)',
+        9: 'bad member name (user)',
+        10: 'bad member id (user)',
+    }[arguments[-1]._obj.value])
 
 # Function and structure accessors
 
