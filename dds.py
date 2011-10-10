@@ -65,6 +65,13 @@ class DDSUInt(object):
         return contents
 
 @apply
+class DDSVoidP(object):
+    def __getattr__(self, attr):
+        contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_void_p))
+        setattr(self, attr, contents)
+        return contents
+
+@apply
 class DDSType(object):
     def __getattr__(self, attr):
         contents = type(attr, (ctypes.Structure,), {})
@@ -152,6 +159,7 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataReader_take, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq), ctypes.c_long, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]),
     (DDSFunc.DynamicDataReader_return_loan, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq)]),
     
+    (DDSFunc.TypeCode_name, check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_kind, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_count, check_ex, ctypes.c_ulong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     (DDSFunc.TypeCode_member_name, check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), ctypes.c_ulong, ctypes.POINTER(DDS_ExceptionCode_t)]),
@@ -224,20 +232,20 @@ class Topic(object):
         self._data_type = data_type
         del dds, topic_name, data_type
         
-        self._support = DDSFunc.DynamicDataTypeSupport_new(self._data_type._TypeSupport_get_typecode(), DDSFunc.DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
-        self._support.register_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        self._support = DDSFunc.DynamicDataTypeSupport_new(self._data_type._get_typecode(), DDSVoidP.DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT)
+        self._support.register_type(self._dds._participant, self._data_type.name)
         
         self._topic = self._dds._participant.create_topic(
             self._topic_name,
-            self._data_type._TypeSupport_get_type_name(),
-            DDSFunc.TOPIC_QOS_DEFAULT,
+            self._data_type.name,
+            DDSVoidP.TOPIC_QOS_DEFAULT,
             None,
             0,
         )
         
         self._writer = self._dds._publisher.create_datawriter(
             self._topic,
-            DDSFunc.DATAWRITER_QOS_DEFAULT,
+            DDSVoidP.DATAWRITER_QOS_DEFAULT,
             None,
             0,
         )
@@ -245,7 +253,7 @@ class Topic(object):
         
         self._reader = self._dds._subscriber.create_datareader(
             self._topic.as_topicdescription(),
-            DDSFunc.DATAREADER_QOS_DEFAULT,
+            DDSVoidP.DATAREADER_QOS_DEFAULT,
             None,
             0,
         )
@@ -273,26 +281,26 @@ class Topic(object):
         self._dds._publisher.delete_datawriter(self._writer)
         self._dds._subscriber.delete_datareader(self._reader)
         self._dds._participant.delete_topic(self._topic)
-        self._support.unregister_type(self._dds._participant, self._data_type._TypeSupport_get_type_name())
+        self._support.unregister_type(self._dds._participant, self._data_type.name) # XXX might not be safe if register_type was called multiple times
         self._support.delete()
 
 class DDS(object):
     def __init__(self, domain_id=0):
         self._participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant(
             domain_id,
-            DDSFunc.PARTICIPANT_QOS_DEFAULT,
+            DDSVoidP.PARTICIPANT_QOS_DEFAULT,
             None,
             0,
         )
         
         self._publisher = self._participant.create_publisher(
-            DDSFunc.PUBLISHER_QOS_DEFAULT,
+            DDSVoidP.PUBLISHER_QOS_DEFAULT,
             None,
             0,
         )
         
         self._subscriber = self._participant.create_subscriber(
-            DDSFunc.SUBSCRIBER_QOS_DEFAULT,
+            DDSVoidP.SUBSCRIBER_QOS_DEFAULT,
             None,
             0,
         )
@@ -311,22 +319,15 @@ class DDS(object):
 
 class LibraryType(object):
     def __init__(self, lib, name):
-        self._lib, self._name = lib, name
+        self._lib, self.name = lib, name
         del lib, name
         
-        assert self._TypeSupport_get_type_name() == self._name
+        assert self._get_typecode().name(ex()) == self.name
     
-    def _TypeSupport_get_typecode(self):
-        f = getattr(self._lib, self._name + '_get_typecode')
+    def _get_typecode(self):
+        f = getattr(self._lib, self.name + '_get_typecode')
         f.argtypes = []
         f.restype = ctypes.POINTER(DDSType.TypeCode)
-        f.errcheck = check_none
-        return f()
-    
-    def _TypeSupport_get_type_name(self):
-        f = getattr(self._lib, self._name + 'TypeSupport_get_type_name')
-        f.argtypes = []
-        f.restype = ctypes.c_char_p
         f.errcheck = check_none
         return f()
 
