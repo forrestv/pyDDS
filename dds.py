@@ -60,10 +60,7 @@ class DDSFunc(object):
 @apply
 class DDSUInt(object):
     def __getattr__(self, attr):
-        #help(_ddsc_lib)
-        #print "XXX", attr, ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_ulong)).contents, ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_uint)).contents
         contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(ctypes.c_uint)).contents
-        #print attr, contents
         setattr(self, attr, contents)
         return contents
 
@@ -74,13 +71,13 @@ class DDSType(object):
         
         def g(self2, attr2):
             f = getattr(DDSFunc, attr + '_' + attr2)
-            def p(*args):
+            def m(*args):
                 return f(self2, *args)
-            setattr(self2, attr2, p)
-            return p
+            setattr(self2, attr2, m)
+            return m
         # make structs dynamically present bound methods
         contents.__getattr__ = g
-        # takes advantage of POINTERs being cached to make type pointers do the same
+        # take advantage of POINTERs being cached to make type pointers do the same
         ctypes.POINTER(contents).__getattr__ = g
         
         setattr(self, attr, contents)
