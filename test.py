@@ -12,6 +12,7 @@ l = dds.Library('../build/DDSMessages/libddsmessages2.so')
 
 topics = []
 topics.append((d.get_topic('t1', l.State), lambda: dict(workername=str(random.randrange(2**10)), state=random.randrange(-2**31, 2**31), health=random.random())))
+topics.append((d.get_topic('t2', l.HydrophoneMessage), lambda: dict(timestamp=int(1e9*time.time()), declination=random.random(), heading=random.random(), distance=random.random(), frequency=random.random(), valid=random.choice([True, False]))))
 
 if recv:
     while True:
