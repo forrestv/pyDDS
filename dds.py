@@ -142,12 +142,15 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.DynamicDataTypeSupport_delete_data, check_none, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     
     (DDSFunc.DynamicData_new, check_none, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.c_void_p]),
+    (DDSFunc.DynamicData_set_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_char_p]),
     (DDSFunc.DynamicData_set_long, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_long]),
     (DDSFunc.DynamicData_set_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_double]),
     (DDSFunc.DynamicData_set_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long, ctypes.c_ulonglong]),
     (DDSFunc.DynamicData_get_double, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_double), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ulong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_ulonglong, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_bind_complex_member, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.c_long]),
+    (DDSFunc.DynamicData_get_member_type, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, ctypes.c_long]),
     (DDSFunc.DynamicData_get_type, check_none, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.DynamicData)]),
     (DDSFunc.DynamicData_get_type_kind, None, ctypes.c_ulong, [ctypes.POINTER(DDSType.DynamicData)]),
     
@@ -171,55 +174,131 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     (DDSFunc.SampleInfoSeq_initialize, None, ctypes.c_bool, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
 ])
 
-def parse_into_dd(obj, dd):
+del type(DDSFunc).__getattr__
+
+class TCKind(object):
+    NULL = 0
+    SHORT = 1
+    LONG = 2
+    USHORT = 3
+    ULONG = 4
+    FLOAT = 5
+    DOUBLE = 6
+    BOOLEAN = 7 
+    CHAR = 8
+    OCTET = 9
+    STRUCT = 10
+    UNION = 11
+    ENUM = 12
+    STRING = 13
+    SEQUENCE = 14
+    ARRAY = 15
+    ALIAS = 16
+    LONGLONG = 17
+    ULONGLONG = 18
+    LONGDOUBLE = 19
+    WCHAR = 20
+    WSTRING = 21
+    VALUE = 22
+    SPARSE = 23
+    RAW_BYTES = 0x7e
+    RAW_BYTES_KEYED = 0x7f
+
+def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
+    tc = ctypes.POINTER(DDSType.TypeCode)()
+    dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
+    
+    kind = tc.kind(ex())
+    # XXX check bounds on this and others
+    if kind == TCKind.SHORT:
+        dd.set_short(member_name, member_id, obj)
+    elif kind == TCKind.LONG:
+        dd.set_long(member_name, member_id, obj)
+    elif kind == TCKind.USHORT:
+        dd.set_ushort(member_name, member_id, obj)
+    elif kind == TCKind.ULONG:
+        dd.set_ulong(member_name, member_id, obj)
+    elif kind == TCKind.FLOAT:
+        dd.set_float(member_name, member_id, obj)
+    elif kind == TCKind.DOUBLE:
+        dd.set_double(member_name, member_id, obj)
+    elif kind == TCKind.BOOLEAN:
+        dd.set_boolean(member_name, member_id, obj)
+    elif kind == TCKind.CHAR:
+        dd.set_char(member_name, member_id, obj)
+    elif kind == TCKind.OCTET:
+        dd.set_octet(member_name, member_id, obj)
+    elif kind == TCKind.STRUCT:
+        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        dd.bind_complex_member(res, member_name, member_id)
+        write_into_dd(obj, res)
+        dd.unbind_complex_member(res)
+        res.delete()
+    elif kind == TCKind.STRING:
+        if '\0' in obj:
+            raise ValueError('strings can not contain null characters')
+        dd.set_string(member_name, member_id, obj)
+    elif kind == TCKind.LONGLONG:
+        dd.set_ulonglong(member_name, member_id, obj)
+    elif kind == TCKind.ULONGLONG:
+        dd.set_ulonglong(member_name, member_id, obj)
+    elif kind == TCKind.LONGDOUBLE:
+        dd.set_longdouble(member_name, member_id, obj)
+    elif kind == TCKind.WCHAR:
+        dd.set_wchar(member_name, member_id, obj)
+    elif kind == TCKind.WSTRING:
+        dd.set_wstring(member_name, member_id, obj)
+    else:
+        raise NotImplementedError(kind)
+
+def write_into_dd(obj, dd):
     kind = dd.get_type_kind()
-    if kind == 10:
+    if kind == TCKind.STRUCT:
         assert isinstance(obj, dict)
         tc = dd.get_type()
         for i in xrange(tc.member_count(ex())):
             name = tc.member_name(i, ex())
-            kind2 = tc.member_type(i, ex()).kind(ex())
-            if kind2 == 6:
-                dd.set_double(name, 0, obj[name])
-            elif kind2 == 18:
-                dd.set_ulonglong(name, 0, obj[name])
-            elif kind2 == 10:
-                raise NotImplementedError()
-                res = DDSFunc.DynamicData_new(None, DDSFunc.DYNAMIC_DATA_PROPERTY_DEFAULT)
-                dd.bind_complex_member(res, tc.member_name(i, ex()), 0)
-                parse_into_dd(obj[tc.member_name(i, ex())], dd)
-                # unbind
-                # delete res
-            else:
-                raise NotImplementedError(kind2)
+            write_into_dd_member(obj[name], dd, member_name=name)
+    else:
+        raise NotImplementedError(kind)
+
+def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
+    tc = ctypes.POINTER(DDSType.TypeCode)()
+    dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
+    
+    kind = tc.kind(ex())
+    if kind == TCKind.DOUBLE:
+        inner = ctypes.c_double()
+        dd.get_double(ctypes.byref(inner), member_name, member_id)
+        return inner.value
+    elif kind == TCKind.STRUCT:
+        raise NotImplementedError()
+        res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
+        dd.bind_complex_member(res, member_name, member_id)
+        x = unpack_dd(dd)
+        dd.unbind_complex_member(res)
+        res.delete()
+        return x
+    elif kind == TCKind.STRING:
+        inner = ctypes.c_char_p(None)
+        inner_size = ctypes.c_ulong(0)
+        dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
+        return inner.value[:inner_size.value]
+    elif kind == TCKind.ULONGLONG:
+        inner = ctypes.c_ulonglong()
+        dd.get_ulonglong(ctypes.byref(inner), member_name, member_id)
+        return inner.value
     else:
         raise NotImplementedError(kind)
 
 def unpack_dd(dd):
     kind = dd.get_type_kind()
-    if kind == 10:
+    if kind == TCKind.STRUCT:
         obj = {}
         tc = dd.get_type()
         for i in xrange(tc.member_count(ex())):
             name = tc.member_name(i, ex())
-            kind2 = tc.member_type(i, ex()).kind(ex())
-            if kind2 == 6:
-                inner = ctypes.c_double()
-                dd.get_double(ctypes.byref(inner), name, 0)
-                obj[name] = inner.value
-            elif kind2 == 18:
-                inner = ctypes.c_ulonglong()
-                dd.get_ulonglong(ctypes.byref(inner), name, 0)
-                obj[name] = inner.value
-            elif kind2 == 10:
-                raise NotImplementedError()
-                res = DDSFunc.DynamicData_new(None, DDSFunc.DYNAMIC_DATA_PROPERTY_DEFAULT)
-                dd.bind_complex_member(res, tc.member_name(i, ex()), 0)
-                parse_into_dd(obj[tc.member_name(i, ex())], dd)
-                # unbind
-                # delete res
-            else:
-                raise NotImplementedError(kind2)
+            obj[name] = unpack_dd_member(dd, member_name=name)
         return obj
     else:
         raise NotImplementedError(kind)
@@ -261,10 +340,11 @@ class Topic(object):
     def send(self, msg):
         sample = self._support.create_data()
         
-        parse_into_dd(msg, sample)
-        self._dyn_narrowed_writer.write(sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0))) # XXX ugly
-        
-        self._support.delete_data(sample)
+        try:
+            write_into_dd(msg, sample)
+            self._dyn_narrowed_writer.write(sample, ctypes.create_string_buffer(struct.pack('<16sII', '', 16, 0))) # XXX ugly
+        finally:
+            self._support.delete_data(sample)
     
     def recv(self):
         data_seq = DDSType.DynamicDataSeq()
