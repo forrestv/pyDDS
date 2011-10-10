@@ -246,7 +246,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=0): # XXX
         if '\0' in obj:
             raise ValueError('strings can not contain null characters')
         dd.set_string(member_name, member_id, obj)
-    elif kind == TCKind.ARRAY:
+    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
         dd.bind_complex_member(res, member_name, member_id)
         write_into_dd(obj, res)
@@ -273,7 +273,7 @@ def write_into_dd(obj, dd):
         for i in xrange(tc.member_count(ex())):
             name = tc.member_name(i, ex())
             write_into_dd_member(obj[name], dd, member_name=name)
-    elif kind == TCKind.ARRAY:
+    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         assert isinstance(obj, list)
         for i, x in enumerate(obj):
             write_into_dd_member(x, dd, member_id=i+1)
@@ -310,7 +310,7 @@ def unpack_dd_member(dd, member_name=None, member_id=0): # XXX
         inner_size = ctypes.c_ulong(0)
         dd.get_string(ctypes.byref(inner), ctypes.byref(inner_size), member_name, member_id)
         return inner.value[:inner_size.value]
-    elif kind == TCKind.ARRAY:
+    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         res = DDSFunc.DynamicData_new(None, DDSVoidP.DYNAMIC_DATA_PROPERTY_DEFAULT)
         dd.bind_complex_member(res, member_name, member_id)
         x = unpack_dd(res)
@@ -333,7 +333,7 @@ def unpack_dd(dd):
             name = tc.member_name(i, ex())
             obj[name] = unpack_dd_member(dd, member_name=name)
         return obj
-    elif kind == TCKind.ARRAY:
+    elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         obj = []
         for i in xrange(dd.get_member_count()):
             obj.append(unpack_dd_member(dd, member_id=i+1))
