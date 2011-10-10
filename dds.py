@@ -10,22 +10,21 @@ class Error(Exception):
     pass
 
 def check_code(result, func, arguments, Error=Error):
-    if result == 0:
-        return
-    raise Error({
-        1: 'error',
-        2: 'unsupported',
-        3: 'bad parameter',
-        4: 'precondition not met',
-        5: 'out of resources',
-        6: 'not enabled',
-        7: 'immutable policy',
-        8: 'inconsistant policy',
-        9: 'already deleted',
-        10: 'timeout',
-        11: 'no data',
-        12: 'illegal operation',
-    }[result])
+    if result != 0:
+        raise Error({
+            1: 'error',
+            2: 'unsupported',
+            3: 'bad parameter',
+            4: 'precondition not met',
+            5: 'out of resources',
+            6: 'not enabled',
+            7: 'immutable policy',
+            8: 'inconsistant policy',
+            9: 'already deleted',
+            10: 'timeout',
+            11: 'no data',
+            12: 'illegal operation',
+        }[result])
 
 def check_none(result, func, arguments, Error=Error):
     if result is None:
@@ -33,20 +32,20 @@ def check_none(result, func, arguments, Error=Error):
     return result
 
 def check_ex(result, func, arguments):
-    if arguments[-1]._obj.value == 0:
-        return result
-    raise Error({
-        1: '(user)',
-        2: '(system)',
-        3: 'bad param (system)',
-        4: 'no memory (system)',
-        5: 'bad typecode (system)',
-        6: 'badkind (user)',
-        7: 'bounds (user)',
-        8: 'immutable typecode (system)',
-        9: 'bad member name (user)',
-        10: 'bad member id (user)',
-    }[arguments[-1]._obj.value])
+    if arguments[-1]._obj.value != 0:
+        raise Error({
+            1: '(user)',
+            2: '(system)',
+            3: 'bad param (system)',
+            4: 'no memory (system)',
+            5: 'bad typecode (system)',
+            6: 'badkind (user)',
+            7: 'bounds (user)',
+            8: 'immutable typecode (system)',
+            9: 'bad member name (user)',
+            10: 'bad member id (user)',
+        }[arguments[-1]._obj.value])
+    return result
 
 # Function and structure accessors
 
