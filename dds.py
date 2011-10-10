@@ -65,6 +65,7 @@ class DDSType(object):
             f = getattr(DDSFunc, attr + '_' + attr2)
             def p(*args):
                 return f(self2, *args)
+            setattr(self2, attr2, p)
             return p
         # make structs dynamically present bound methods
         contents.__getattr__ = g
