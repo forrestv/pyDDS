@@ -138,22 +138,50 @@ DDS_StatusMask = DDS_UnsignedLong
 
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
 
+class TCKind(object):
+    NULL = 0
+    SHORT = 1
+    LONG = 2
+    USHORT = 3
+    ULONG = 4
+    FLOAT = 5
+    DOUBLE = 6
+    BOOLEAN = 7 
+    CHAR = 8
+    OCTET = 9
+    STRUCT = 10
+    UNION = 11
+    ENUM = 12
+    STRING = 13
+    SEQUENCE = 14
+    ARRAY = 15
+    ALIAS = 16
+    LONGLONG = 17
+    ULONGLONG = 18
+    LONGDOUBLE = 19
+    WCHAR = 20
+    WSTRING = 21
+    VALUE = 22
+    SPARSE = 23
+    RAW_BYTES = 0x7e
+    RAW_BYTES_KEYED = 0x7f
+
 # Function prototypes
 
-_dyn_types = dict(
-    long=DDS_Long,
-    ulong=DDS_UnsignedLong,
-    short=DDS_Short,
-    ushort=DDS_UnsignedShort,
-    longlong=DDS_LongLong,
-    ulonglong=DDS_UnsignedLongLong,
-    float=DDS_Float,
-    double=DDS_Double,
-    boolean=DDS_Boolean,
-    octet=DDS_Octet,
-    char=DDS_Char,
-    wchar=DDS_Wchar,
-)
+_dyn_basic_types = {
+    TCKind.LONG: ('long', DDS_Long, (-2**31, 2**31)),
+    TCKind.ULONG: ('ulong', DDS_UnsignedLong, (0, 2**32)),
+    TCKind.SHORT: ('short', DDS_Short, (-2**15, 2**15)),
+    TCKind.USHORT: ('ushort', DDS_UnsignedShort, (0, 2**16)),
+    TCKind.LONGLONG: ('longlong', DDS_LongLong, (-2**63, 2**63)),
+    TCKind.ULONGLONG: ('ulonglong', DDS_UnsignedLongLong, (0, 2**64)),
+    TCKind.FLOAT: ('float', DDS_Float, None),
+    TCKind.DOUBLE: ('double', DDS_Double, None),
+    TCKind.BOOLEAN: ('boolean', DDS_Boolean, None),
+    TCKind.OCTET: ('octet', DDS_Octet, (0, 2**8)),
+    TCKind.CHAR: ('char', DDS_Char, None),
+    TCKind.WCHAR: ('wchar', DDS_Wchar, None),
+}
 map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) if errcheck is not None else None, setattr(p, 'restype', restype), setattr(p, 'argtypes', argtypes)), [
     (DDSFunc.DomainParticipantFactory_get_instance, check_null, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     (DDSFunc.DomainParticipantFactory_create_participant, check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), DDS_DomainId_t, ctypes.POINTER(DDSType.DomainParticipantQos), ctypes.POINTER(DDSType.DomainParticipantListener), DDS_StatusMask]),
@@ -182,11 +210,11 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
     
     (DDSFunc.DynamicData_new, check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataProperty)]),
 ] + [
-    (getattr(DDSFunc, "DynamicData_get_" + k), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(v), ctypes.c_char_p, DDS_DynamicDataMemberId])
-        for k, v in _dyn_types.iteritems()
+    (getattr(DDSFunc, "DynamicData_get_" + func_name), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(data_type), ctypes.c_char_p, DDS_DynamicDataMemberId])
+        for func_name, data_type, bounds in _dyn_basic_types.itervalues()
 ] + [
-    (getattr(DDSFunc, "DynamicData_set_" + k), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, v])
-        for k, v in _dyn_types.iteritems()
+    (getattr(DDSFunc, "DynamicData_set_" + func_name), check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, data_type])
+        for func_name, data_type, bounds  in _dyn_basic_types.itervalues()
 ] + [
     (DDSFunc.DynamicData_get_string, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     (DDSFunc.DynamicData_get_wstring, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
@@ -228,62 +256,16 @@ map(lambda (p, errcheck, restype, argtypes): (setattr(p, 'errcheck', errcheck) i
 
 del type(DDSFunc).__getattr__
 
-class TCKind(object):
-    NULL = 0
-    SHORT = 1
-    LONG = 2
-    USHORT = 3
-    ULONG = 4
-    FLOAT = 5
-    DOUBLE = 6
-    BOOLEAN = 7 
-    CHAR = 8
-    OCTET = 9
-    STRUCT = 10
-    UNION = 11
-    ENUM = 12
-    STRING = 13
-    SEQUENCE = 14
-    ARRAY = 15
-    ALIAS = 16
-    LONGLONG = 17
-    ULONGLONG = 18
-    LONGDOUBLE = 19
-    WCHAR = 20
-    WSTRING = 21
-    VALUE = 22
-    SPARSE = 23
-    RAW_BYTES = 0x7e
-    RAW_BYTES_KEYED = 0x7f
-
 def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED):
     tc = ctypes.POINTER(DDSType.TypeCode)()
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
     kind = tc.kind(ex())
-    if kind == TCKind.SHORT:
-        if not -2**15 <= obj < 2**15: raise ValueError()
-        dd.set_short(member_name, member_id, obj)
-    elif kind == TCKind.LONG:
-        if not -2**31 <= obj < 2**31: raise ValueError()
-        dd.set_long(member_name, member_id, obj)
-    elif kind == TCKind.USHORT:
-        if not 0 <= obj < 2**16: raise ValueError()
-        dd.set_ushort(member_name, member_id, obj)
-    elif kind == TCKind.ULONG:
-        if not 0 <= obj < 2**32: raise ValueError()
-        dd.set_ulong(member_name, member_id, obj)
-    elif kind == TCKind.FLOAT:
-        dd.set_float(member_name, member_id, obj)
-    elif kind == TCKind.DOUBLE:
-        dd.set_double(member_name, member_id, obj)
-    elif kind == TCKind.BOOLEAN:
-        dd.set_boolean(member_name, member_id, obj)
-    elif kind == TCKind.CHAR:
-        dd.set_char(member_name, member_id, obj)
-    elif kind == TCKind.OCTET:
-        if not 0 <= obj < 2**8: raise ValueError()
-        dd.set_octet(member_name, member_id, obj)
+    if kind in _dyn_basic_types:
+        func_name, data_type, bounds = _dyn_basic_types[kind]
+        if bounds is not None and not bounds[0] <= obj < bounds[1]:
+            raise ValueError('%r not in range [%r, %r)' % (obj, bounds[0], bounds[1]))
+        getattr(dd, 'set_' + func_name)(member_name, member_id, obj)
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
         inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
         try:
@@ -298,16 +280,6 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
         if '\0' in obj:
             raise ValueError('strings can not contain null characters')
         dd.set_string(member_name, member_id, obj)
-    elif kind == TCKind.LONGLONG:
-        if not -2**63 <= obj < 2**63: raise ValueError()
-        dd.set_ulonglong(member_name, member_id, obj)
-    elif kind == TCKind.ULONGLONG:
-        if not 0 <= obj < 2**64: raise ValueError()
-        dd.set_ulonglong(member_name, member_id, obj)
-    elif kind == TCKind.LONGDOUBLE:
-        dd.set_longdouble(member_name, member_id, obj)
-    elif kind == TCKind.WCHAR:
-        dd.set_wchar(member_name, member_id, obj)
     elif kind == TCKind.WSTRING:
         dd.set_wstring(member_name, member_id, obj)
     else:
@@ -333,41 +305,10 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
     kind = tc.kind(ex())
-    if kind == TCKind.SHORT:
-        inner = DDS_Short()
-        dd.get_short(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.LONG:
-        inner = DDS_Long()
-        dd.get_long(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.USHORT:
-        inner = DDS_UnsignedShort()
-        dd.get_ushort(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.ULONG:
-        inner = DDS_UnsignedLong()
-        dd.get_ulong(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.FLOAT:
-        inner = DDS_Float()
-        dd.get_float(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.DOUBLE:
-        inner = DDS_Double()
-        dd.get_double(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.BOOLEAN:
-        inner = DDS_Boolean()
-        dd.get_boolean(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.CHAR:
-        inner = DDS_Char()
-        dd.get_char(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.OCTET:
-        inner = DDS_Octet()
-        dd.get_octet(ctypes.byref(inner), member_name, member_id)
+    if kind in _dyn_basic_types:
+        func_name, data_type, bounds = _dyn_basic_types[kind]
+        inner = data_type()
+        getattr(dd, 'get_' + func_name)(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
         inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
@@ -386,22 +327,6 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
             return inner.value
         finally:
             DDSFunc.String_free(inner)
-    elif kind == TCKind.LONGLONG:
-        inner = DDS_LongLong()
-        dd.get_longlong(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.ULONGLONG:
-        inner = DDS_UnsignedLongLong()
-        dd.get_ulonglong(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.LONGDOUBLE:
-        inner = DDS_LongDouble()
-        dd.get_longdouble(ctypes.byref(inner), member_name, member_id)
-        return inner.value
-    elif kind == TCKind.WCHAR:
-        inner = DDS_Wchar()
-        dd.get_wchar(ctypes.byref(inner), member_name, member_id)
-        return inner.value
     elif kind == TCKind.WSTRING:
         inner = ctypes.c_wchar_p(None)
         try:
