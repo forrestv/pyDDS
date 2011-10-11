@@ -349,7 +349,7 @@ def unpack_dd(dd):
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         obj = []
         for i in xrange(dd.get_member_count()):
-            obj.append(unpack_dd_member(dd, member_id=i+1)) # XXX (maybe)
+            obj.append(unpack_dd_member(dd, member_id=i+1))
         return obj
     else:
         raise NotImplementedError(kind)
