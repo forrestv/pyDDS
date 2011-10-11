@@ -1,11 +1,12 @@
 import ctypes
 import os
 import struct
+import sys
 import weakref
 
-# XXX 32bit path
-_ddscore_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', 'x64Linux2.6gcc4.1.1', 'libnddscore.so'), ctypes.RTLD_GLOBAL)
-_ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', 'x64Linux2.6gcc4.1.1', 'libnddsc.so'))
+arch_str = 'x64Linux2.6gcc4.1.1' if sys.maxsize > 2**32 else 'i86Linux2.6gcc4.1.1'
+_ddscore_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
+_ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddsc.so'))
 
 # Error checkers
 
