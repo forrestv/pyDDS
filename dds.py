@@ -1,6 +1,7 @@
 import ctypes
 import os
 import struct
+import weakref
 
 # XXX 32bit path
 _ddscore_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', 'x64Linux2.6gcc4.1.1', 'libnddscore.so'), ctypes.RTLD_GLOBAL)
@@ -358,15 +359,15 @@ class Topic(object):
     def __init__(self, dds, name, data_type):
         self._dds = dds
         self.name = name
-        self._data_type = data_type
+        self.data_type = data_type
         del dds, name, data_type
         
-        self._support = DDSFunc.DynamicDataTypeSupport_new(self._data_type._get_typecode(), get('DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT', DDSType.DynamicDataTypeProperty_t))
-        self._support.register_type(self._dds._participant, self._data_type.name)
+        self._support = DDSFunc.DynamicDataTypeSupport_new(self.data_type._get_typecode(), get('DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT', DDSType.DynamicDataTypeProperty_t))
+        self._support.register_type(self._dds._participant, self.data_type.name)
         
         self._topic = self._dds._participant.create_topic(
             self.name,
-            self._data_type.name,
+            self.data_type.name,
             get('TOPIC_QOS_DEFAULT', DDSType.TopicQos),
             None,
             0,
@@ -413,7 +414,7 @@ class Topic(object):
         self._dds._publisher.delete_datawriter(self._writer)
         self._dds._subscriber.delete_datareader(self._reader)
         self._dds._participant.delete_topic(self._topic)
-        self._support.unregister_type(self._dds._participant, self._data_type.name)
+        self._support.unregister_type(self._dds._participant, self.data_type.name)
         self._support.delete()
 
 class DDS(object):
@@ -436,10 +437,17 @@ class DDS(object):
             None,
             0,
         )
+        self._open_topics = weakref.WeakValueDictionary()
     
     def get_topic(self, name, data_type):
-        # XXX cache this to handle it being called multiple times
-        return Topic(self, name, data_type)
+        res = self._open_topics.get(name, None)
+        if res is not None:
+            if data_type != res.data_type:
+                raise ValueError('get_topic called with a previous name but a different data_type')
+            return res
+        res = Topic(self, name, data_type)
+        self._open_topics[name] = res
+        return res
     
     def __del__(self):
         self._participant.delete_subscriber(self._subscriber)
@@ -468,4 +476,6 @@ class Library(object):
         self._lib = ctypes.CDLL(so_path)
     
     def __getattr__(self, attr):
-        return LibraryType(self._lib, attr)
+        res = LibraryType(self._lib, attr)
+        setattr(self, attr, res)
+        return res
