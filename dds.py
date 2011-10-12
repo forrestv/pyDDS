@@ -51,6 +51,10 @@ def check_ex(result, func, arguments):
         }[arguments[-1]._obj.value])
     return result
 
+def check_true(result, func, arguments):
+    if not result:
+        raise Error()
+
 # Function and structure accessors
 
 def get(name, type):
@@ -123,8 +127,8 @@ DDS_Boolean = ctypes.c_bool
 DDS_Enum = DDS_UnsignedLong
 
 DDS_DynamicDataMemberId = DDS_Long
-DDS_ReturnCode_t = DDS_Enum
-DDS_ExceptionCode_t = DDS_Enum
+DDS_ReturnCode_t = enum
+DDS_ExceptionCode_t = enum
 def ex():
     return ctypes.byref(DDS_ExceptionCode_t())
 DDS_DomainId_t = ctypes.c_int32
@@ -207,7 +211,7 @@ map(lambda (p, errcheck, restype, argtypes): (lambda f: (setattr(f, 'errcheck', 
     ('DynamicDataTypeSupport_delete_data', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicDataTypeSupport_print_data', None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DynamicData)]),
     
-    ('DynamicData_new', check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataProperty)]),
+    ('DynamicData_new', check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataProperty_t)]),
 ] + [
     ('DynamicData_get_' + func_name, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(data_type), ctypes.c_char_p, DDS_DynamicDataMemberId])
         for func_name, data_type, bounds in _dyn_basic_types.itervalues()
@@ -224,7 +228,7 @@ map(lambda (p, errcheck, restype, argtypes): (lambda f: (setattr(f, 'errcheck', 
     ('DynamicData_get_member_type', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     ('DynamicData_get_member_count', None, DDS_UnsignedLong, [ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicData_get_type', check_null, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.DynamicData)]),
-    ('DynamicData_get_type_kind', None, enum, [ctypes.POINTER(DDSType.DynamicData)]),
+    ('DynamicData_get_type_kind', None, DDS_TCKind, [ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicData_delete', None, None, [ctypes.POINTER(DDSType.DynamicData)]),
     
     ('DynamicDataWriter_narrow', check_null, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
@@ -240,11 +244,11 @@ map(lambda (p, errcheck, restype, argtypes): (lambda f: (setattr(f, 'errcheck', 
     ('TypeCode_member_name', check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), DDS_UnsignedLong, ctypes.POINTER(DDS_ExceptionCode_t)]),
     ('TypeCode_member_type', check_ex, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.TypeCode), DDS_UnsignedLong, ctypes.POINTER(DDS_ExceptionCode_t)]),
     
-    ('DynamicDataSeq_initialize', None, DDS_Boolean, [ctypes.POINTER(DDSType.DynamicDataSeq)]),
+    ('DynamicDataSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDSType.DynamicDataSeq)]),
     ('DynamicDataSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDSType.DynamicDataSeq)]),
     ('DynamicDataSeq_get_reference', check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.DynamicDataSeq), DDS_Long]),
     
-    ('SampleInfoSeq_initialize', None, DDS_Boolean, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
+    ('SampleInfoSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_reference', check_null, ctypes.POINTER(DDSType.SampleInfo), [ctypes.POINTER(DDSType.SampleInfoSeq), DDS_Long]),
     
@@ -264,7 +268,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
             raise ValueError('%r not in range [%r, %r)' % (obj, bounds[0], bounds[1]))
         getattr(dd, 'set_' + func_name)(member_name, member_id, obj)
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
-        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
+        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty_t))
         try:
             dd.bind_complex_member(inner, member_name, member_id)
             try:
@@ -308,7 +312,7 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
         getattr(dd, 'get_' + func_name)(ctypes.byref(inner), member_name, member_id)
         return inner.value
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
-        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty))
+        inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty_t))
         try:
             dd.bind_complex_member(inner, member_name, member_id)
             try:
