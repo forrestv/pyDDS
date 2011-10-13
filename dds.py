@@ -185,7 +185,14 @@ _dyn_basic_types = {
     TCKind.CHAR: ('char', DDS_Char, None),
     TCKind.WCHAR: ('wchar', DDS_Wchar, None),
 }
-map(lambda (p, errcheck, restype, argtypes): (lambda f: (setattr(f, 'errcheck', errcheck) if errcheck else None, setattr(f, 'restype', restype), setattr(f, 'argtypes', argtypes), setattr(DDSFunc, p, f)))(getattr(_ddsc_lib, 'DDS_' + p)), [
+def _define_func((p, errcheck, restype, argtypes)):
+    f = getattr(_ddsc_lib, 'DDS_' + p)
+    if errcheck is not None:
+        f.errcheck = errcheck
+    f.restype = restype
+    f.argtypes = argtypes
+    setattr(DDSFunc, p, f)
+map(_define_func, [
     ('DomainParticipantFactory_get_instance', check_null, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     ('DomainParticipantFactory_create_participant', check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), DDS_DomainId_t, ctypes.POINTER(DDSType.DomainParticipantQos), ctypes.POINTER(DDSType.DomainParticipantListener), DDS_StatusMask]),
     ('DomainParticipantFactory_delete_participant', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.POINTER(DDSType.DomainParticipant)]),
