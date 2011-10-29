@@ -108,6 +108,28 @@ DDSType.InstanceHandle_t._fields_ = [
 ]
 DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
 
+DDSType.SampleInfo._fields_ = [
+    ('sample_state', DDS_SampleStateKind),
+    ('view_state', DDS_ViewStateKind),
+    ('instance_state', DDS_InstanceStateKind),
+    ('source_timestamp', DDS_Time_t),
+    ('instance_handle', DDSType.InstanceHandle_t),
+    ('publication_handle', DDSType.InstanceHandle_t),
+    ('disposed_generation_count', DDS_Long),
+    ('no_writers_generation_count', DDS_Long),
+    ('sample_rank', DDS_Long),
+    ('generation_rank', DDS_Long),
+    ('absolute_generation_rank', DDS_Long),
+    ('valid_data', DDS_Boolean),
+    ('reception_timestamp', DDS_Time_t),
+    ('publication_sequence_number', DDS_SequenceNumber_t),
+    ('reception_sequence_number', DDS_SequenceNumber_t),
+    ('publication_virtual_guid', DDS_GUID_t),
+    ('publication_virtual_sequence_number', DDS_SequenceNumber_t),
+    ('original_publication_virtual_guid', DDS_GUID_t),
+    ('original_publication_virtual_sequence_number', DDS_SequenceNumber_t),
+]
+
 # some types
 enum = ctypes.c_int
 
