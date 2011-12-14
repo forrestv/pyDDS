@@ -1,6 +1,5 @@
 import sys
 import time
-import traceback
 import random
 
 import dds
