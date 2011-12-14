@@ -1,0 +1,80 @@
+remove DDSFunc.__getattr__ by making prototypes setattr functions to it
+
+fix __del__ errors if __init__ fails
+
+handle SampleInfo - something to do with invalid sample on other producer quitting
+
+copy defines for datatypes and check/reorder all
+
+integrate with twisted
+
+use get_*_array or get_*_sequence to speed it up
+
+types
+    done
+        string
+        long
+        double
+        unsigned long long
+        boolean
+        array
+        sequence
+        unsigned short
+        short
+        unsigned long
+        struct
+    
+    undone
+        union
+        enum
+        alias
+        value
+        sparse
+        null
+        raw_bytes
+        raw_bytes_keyed
+
+problem
+    error
+        Received {'current16': 12.446920090116809, 'timestamp': 1318276565709613056L, 'voltage16': 17.36217252284728, 'tickcount': 3576434793L, 'current': [0.18977993695684803, 0.7365952163771862, 0.5685053601942396, 0.7077487608127387, 0.12176483230562274, 0.12798767408282818, 0.09944259345798367, 0.5975122110003311], 'state': 4481, 'flags': 3731466278L, 'voltage32': 32.873356782811015, 'estop': True, 'current32': 4.284274095865942} on t7
+        Received {'username': '1009', 'message': '33'} on t5
+        ^CTraceback (most recent call last):
+          File "test.py", line 28, in <module>
+            msg = t.recv()
+          File "/home/forrest/repos/sub/dds_test/dds.py", line 475, in recv
+            self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+          File "/home/forrest/repos/sub/dds_test/dds.py", line 96, in m
+            return f(self2, *args)
+          File "/home/forrest/repos/sub/dds_test/dds.py", line 14, in check_code
+            def check_code(result, func, arguments):
+        KeyboardInterrupt
+        [D0100|Sub(309)|T=t6|DELETE Reader]PRESPsService_destroyLocalEndpoint:!delete local reader
+        [D0100|Sub(309)|T=t6|DELETE Reader]DDS_DataReader_deleteI:!delete PRESLocalEndpoint
+        [D0100|Sub(309)|T=t6|DELETE Reader]DDS_Subscriber_delete_datareader:!delete reader
+        Exception dds.Error: Error('precondition not met',) in <bound method Topic.__del__ of <dds.Topic object at 0x1a1c690>> ignored
+        [D0100|DELETE Sub]PRESPsService_destroyGroupWithCursor:!no local endpoint in group
+        [D0100|DELETE Sub]PRESPsService_destroyGroup:!delete group
+        [D0100|DELETE Sub]DDS_Subscriber_destroyI():!delete PRESGroup
+        [D0100|DELETE Sub]DDS_DomainParticipant_delete_subscriber:!delete subscriber
+        Exception dds.Error: Error('precondition not met',) in <bound method DDS.__del__ of <dds.DDS object at 0x1a27ad0>> ignored
+    
+    only solution is to ignore SIGINT globally because we can't prevent an exception from being triggered in between a ctypes function returning and the variable holding the result being set
+        twisted automatically does this
+
+find if this is cleaner
+    class DDSInnerAcc(object):
+        def __init__(self, type):
+            self._type = type
+        
+        def __getattr__(self, attr):
+            contents = ctypes.cast(getattr(_ddsc_lib, 'DDS_' + attr), ctypes.POINTER(self._type)).contents
+            setattr(self, attr, contents)
+            return contents
+            
+
+    @apply
+    class DDSAcc(object):
+        def __getattr__(self, attr):
+            contents = DDSInnerAcc(globals()[attr])
+            setattr(self, attr, contents)
+            return contents
